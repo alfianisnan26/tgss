@@ -31,3 +31,6 @@ class Config:
 
     def SESSION():
         return os.getenv("SESSION")
+
+    def SS_EXPORT_DIR():
+        return os.getenv("SS_EXPORT_DIR")

@@ -1,4 +1,5 @@
 import re
+import os
 
 def extract_links(string):
     # Define the regular expression pattern to match URLs
@@ -27,3 +28,9 @@ def extract_dl_stream_link(string):
             link.watch_url = url
 
     return link
+
+def mkdir_nerr(dir):
+    try:
+        os.mkdir(dir)
+    except Exception as e:
+        pass

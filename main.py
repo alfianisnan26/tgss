@@ -21,7 +21,9 @@ async def main(app:str):
             await svc.show_available_dialogs()
         elif app == "me":
             await svc.show_my_info()
-        else:
+        elif app == "last_message":
+            await svc.show_last_video_message(dialog_id=Config.DIALOG_ID())
+        elif app == "worker": # python main.py worker {message_id} singel
             message_id = None
             is_single = False
 
@@ -30,12 +32,14 @@ async def main(app:str):
             if len(sys.argv) > 3:
                 is_single = sys.argv[3] == "single"
 
-            await svc.start_ss_worker(Config.DIALOG_ID(), message_id, is_single)
+            await svc.start_ss_worker(Config.DIALOG_ID(), Config.BOT_ID(), message_id, is_single, Config.SS_EXPORT_DIR())
+        else:
+            print("unknown command")
 
 if __name__ == "__main__":
     Config.init()
 
-    app:str = None # default
+    app:str = "worker" # default
 
     if len(sys.argv) > 1:
         app = sys.argv[1]

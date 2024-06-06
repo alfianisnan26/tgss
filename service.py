@@ -1,10 +1,23 @@
 from tg import TG
 from ffmpeg import FFMPEG
 from telethon.types import InputMessagesFilterVideo
-
+import utils
+import os
+import utils
 class Service:
     def __init__(self, tg:TG, ffmpeg: FFMPEG):
         self.tg:TG = tg
+        self.ffmpeg = ffmpeg
+
+    def print_message_info(msg):
+        print("ID:", msg.id)
+
+    async def show_last_video_message(self, dialog_id):
+        dialog = await self.tg.get_dialog_by_id(dialog_id)
+        async for msg in self.tg.get_all_video_message(dialog, limit=1):
+            Service.print_message_info(msg)
+            break
+        
 
     async def show_available_dialogs(self):
         dialogs = await self.tg.available_dialogs()
@@ -26,53 +39,22 @@ class Service:
         print("username\t:", info.username)
         print("phone\t\t:", info.phone)
 
-    async def start_ss_worker(self, dialog_id, message_id=None, is_single=False):
-        async for msg in self.tg.get_all_video_message(dialog_id=dialog_id, start_from=message_id, is_single=is_single):
-            print(msg.id) # print video info
+    async def start_ss_worker(self, dialog_id, bot_id, message_id=None, is_single=False, export_path = ''):
+        dialog = await self.tg.get_dialog_by_id(dialog_id)
+        bot = await self.tg.get_dialog_by_id(bot_id)
 
-        # async for msg in client.iter_messages(dialog, filter=InputMessagesFilterVideo):
-        #     message:telethon.tl.patched.Message = msg
+        utils.mkdir_nerr(export_path)
 
-        #     new_msg:telethon.tl.patched.Message = await message.forward_to(bot)
-
-        #     attemps = 5
-        #     reply = None
-        #     sleep_time = 1
-
-        #     while (attemps > 0):
-        #         replies = await client.get_messages(bot, filter=InputReplyToMessage(new_msg.id))
-        #         if len(replies) > 0:
-        #             reply = replies[0]
-        #             if reply.id != new_msg.id:
-        #                 break
-
-        #         await asyncio.sleep(sleep_time)
-
-        #         print(f"attemps: {attemps}")
-        #         attemps -= 1
-        #         if attemps <= 0:
-        #             return
-
-        #     link = utils.extract_dl_stream_link(reply.message)
-
-        #     frame_rate = 30
-        #     module = frame_rate * Config.FRAME_COUNT()
-
-        #     try:
-        #         os.mkdir(f'ss/{message.video.id}')
-        #     except Exception as e:
-        #         print(e)
-
-        #     print(link.download_url)
+        async for msg in self.tg.get_all_video_message(dialog=dialog, start_from=message_id, is_single=is_single):
+            rep_msg = await self.tg.forward_and_get_reply_msg(dialog=bot, msg=msg)
+            if rep_msg == None:
+                print("Failed to get replied forwarded message")
+                return
             
-        #     ffmpeg_cmd = [
-        #         'ffmpeg',
-        #         '-hide_banner',
-        #         '-i', link.download_url,
-        #         '-vf', f"select='not(mod(n\,{module}))',setpts='N/({frame_rate}*TB)'",
-        #         '-q:v', '2',
-        #         f'ss/{message.video.id}/%03d.jpg'
-        #     ]
+            links = utils.extract_dl_stream_link(rep_msg.message)
 
-        #     subprocess.run(ffmpeg_cmd)
-        #     break
+            path = os.path.join(export_path, str(msg.id))
+
+            utils.mkdir_nerr(path)
+            
+            self.ffmpeg.generate_ss(links.download_url, path)
