@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Last Message Info</title>
+    <style>
+        .copy-button {
+            cursor: pointer;
+            background-color: #007bff; /* Adjust color as needed */
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+    </style>
+    <script>
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text);
+            alert("The ID " + text + " has been copied to the clipboard.");
+        }
+    </script>
+</head>
+<body>
+    <h1>Last Message Information</h1>
+    <ul>
+        <li><strong>ID:</strong> {{ last_message.id }} <button class="copy-button" onclick="copyToClipboard('{{ last_message.id }}')">Copy</button></li> 
+        
+        <li><strong>URL:</strong> <a target='_blank' href='{{ last_message.url }}'>{{ last_message.url }}</a></li>
+        <li><strong>Peer ID:</strong> {{ last_message.peer_id }}</li>
+        <li><strong>Dialog ID:</strong> {{ last_message.dialog_id }}</li>
+        <li><strong>Dialog Name:</strong> {{ last_message.dialog_name }}</li>
+    </ul>
+</body>
+</html>

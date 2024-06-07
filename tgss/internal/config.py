@@ -34,3 +34,9 @@ class Config:
 
     def SS_EXPORT_DIR():
         return os.getenv("SS_EXPORT_DIR")
+    
+    def SERVER_PORT():
+        return os.getenv("SERVER_PORT")
+    
+    def STREAM_ENDPOINT():
+        return os.getenv("STREAM_ENDPOINT")

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dialogs</title>
+    <style>
+        .copy-button {
+            cursor: pointer;
+            background-color: #007bff; /* Adjust color as needed */
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+    </style>
+    <script>
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text);
+            alert("The ID " + text + " has been copied to the clipboard.");
+        }
+    </script>
+</head>
+<body>
+    <h1>Dialogs</h1>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for dialog in dialogs %}
+                <tr>
+                    <td>{{ dialog.id }}</td>
+                    <td>{{ dialog.name }}</td>
+                    <td>
+                        <button class="copy-button" onclick="copyToClipboard('{{ dialog.id }}')">Copy</button>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

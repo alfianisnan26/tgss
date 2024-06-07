@@ -1,5 +1,6 @@
 import re
 import os
+from telethon.types import Message
 
 def extract_links(string):
     # Define the regular expression pattern to match URLs

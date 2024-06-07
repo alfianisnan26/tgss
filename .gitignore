@@ -3,4 +3,5 @@ ss/
 venv/
 __pycache__/
 *.session
+*.session-*
 .env
