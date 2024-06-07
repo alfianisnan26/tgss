@@ -11,11 +11,12 @@ from quart import Quart
 import subprocess
 
 ffmpeg = FFMPEG()
+db = DB(Config.SQLITE_URL())
 
 async def worker():
     async with TelegramClient(Config.SESSION() + "_worker", Config.API_ID(), Config.API_HASH()) as client:
         tg = TG(client=client)
-        db = DB(Config.SQLITE_URL())
+       
         svc = Service(
             db,
             tg,

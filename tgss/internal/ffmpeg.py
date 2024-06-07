@@ -34,6 +34,8 @@ class FFMPEG:
             logging.error(f"Error occurred: {e}")
             logging.error(f"Standard output:\n{e.stdout}")
             logging.error(f"Standard error:\n{e.stderr}")
+
+            raise e
         
     def get_video_info(self, link):
         container = av.open(link)

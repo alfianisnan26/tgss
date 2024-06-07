@@ -15,7 +15,7 @@ def main():
     logging.info('Inserted video: %s', video)
 
     # Retrieve all videos
-    videos = db.get_video(Video(), Filter(limit=5, offset=0))
+    videos = db.get_videos(Video(), Filter(limit=5, offset=0))
     logging.info('Retrieved videos: %s', videos)
 
     # Update a video record
@@ -33,7 +33,7 @@ def main():
     logging.info('Inserted worker session: %s', session)
 
     # Retrieve all worker sessions
-    worker_sessions = db.get_worker_session(WorkerSession(), Filter(limit=5, offset=0))
+    worker_sessions = db.get_worker_sessions(WorkerSession(), Filter(limit=5, offset=0))
     logging.info('Retrieved worker sessions: %s', worker_sessions)
 
     # Update a worker session record

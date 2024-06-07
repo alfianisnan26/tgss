@@ -1,3 +1,5 @@
+import telethon
+
 class Video:
     def __init__(self, id:int=None, file_id:int=None, message_id:int=None, dialog_id:int=None, name:str=None, size:int=None, height:float=None, width:float=None, bitrate:int=None, duration:float=None, status:str=None):
         self.id = id
@@ -11,6 +13,9 @@ class Video:
         self.bitrate = bitrate
         self.duration = duration
         self.status = status
+
+    def from_message(msg:telethon.tl.patched.Message) -> Video:
+        pass
 
 class WorkerSession:
     def __init__(self, id:int=None, user_id:int=None, dialog_id:int=None, last_scan_message_id:int=None):

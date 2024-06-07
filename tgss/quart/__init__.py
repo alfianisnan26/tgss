@@ -5,6 +5,7 @@ from tgss.internal.config import Config
 from tgss.internal.error import abort
 from tgss.internal.ffmpeg import FFMPEG
 from tgss.internal.tg import TG
+from tgss.internal.db import DB
 from tgss.internal.service import Service
 from tgss.internal import error
 

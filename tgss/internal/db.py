@@ -53,7 +53,7 @@ class DB:
             ('user_id', 'INTEGER NOT NULL', 'idx_user_id'),
             ('dialog_id', 'INTEGER NOT NULL','idx_dialog_id'),
 
-            ('last_scan_message_id', 'INTEGER NOT NULL', None)
+            ('last_scan_message_id', 'INTEGER', None)
         ]
 
         self.__create_table(DB.tab_video, tab_video_col)
@@ -83,6 +83,18 @@ class DB:
         rows = self.cursor.fetchall()
         return rows
 
+    def __insert_table(self, table_name: str, obj: object, obtain_data=False):
+        columns = ', '.join(vars(obj).keys())
+        placeholders = ', '.join(['?' for _ in range(len(vars(obj)))])
+        insert_query = f'INSERT INTO {table_name} ({columns}) VALUES ({placeholders})'
+        values = tuple(vars(obj).values())
+        self.cursor.execute(insert_query, values)
+        self.conn.commit()
+
+        if obtain_data:
+            # get data use fetch_data only response a single object
+            pass
+
     def __update_table(self, table_name: str, obj: object) -> None:
         update_fields = [f"{key} = ?" for key, value in vars(obj).items() if value is not None]
         set_clause = ', '.join(update_fields)
@@ -91,20 +103,14 @@ class DB:
         self.cursor.execute(update_query, values)
         self.conn.commit()
 
-    def __insert_table(self, table_name: str, obj: object) -> None:
-        columns = ', '.join(vars(obj).keys())
-        placeholders = ', '.join(['?' for _ in range(len(vars(obj)))])
-        insert_query = f'INSERT INTO {table_name} ({columns}) VALUES ({placeholders})'
-        values = tuple(vars(obj).values())
-        self.cursor.execute(insert_query, values)
-        self.conn.commit()
+    
 
     def __delete_from_table(self, table_name: str, record_id: int) -> None:
         delete_query = f'DELETE FROM {table_name} WHERE id = ?'
         self.cursor.execute(delete_query, (record_id,))
         self.conn.commit()
         
-    def get_video(self, ref: Video, filter:Filter) -> List[Video]:
+    def get_videos(self, ref: Video, filter:Filter) -> List[Video]:
         rows = self.__fetch_data(DB.tab_video, ref, filter)
         videos = [Video(*row) for row in rows]
         return videos
@@ -115,7 +121,7 @@ class DB:
     def update_video(self, new: Video) -> None:
         self.__update_table(DB.tab_video, new)
     
-    def get_worker_session(self, ref: WorkerSession, filter:Filter) -> List[WorkerSession]:
+    def get_worker_sessions(self, ref: WorkerSession, filter:Filter) -> List[WorkerSession]:
         rows = self.__fetch_data(DB.tab_worker_session, ref, filter)
         worker_sessions = [WorkerSession(*row) for row in rows]
         return worker_sessions

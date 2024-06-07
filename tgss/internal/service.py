@@ -10,6 +10,7 @@ import concurrent.futures
 from tgss.internal.thread import ThreadManager
 import logging
 from tgss.internal.db import DB
+from tgss.internal.model import Video, WorkerSession, Filter
 
 class Service:
     def __init__(self, db:DB, tg:TG, ffmpeg: FFMPEG, stream_endpoint='http://localhost:8080/stream/{message_id}', default_count_frame=10, default_frame_rate=30, max_workers=5):
@@ -76,22 +77,53 @@ class Service:
             
     async def start_ss_worker_direct(self, dialog_id, message_id=None, limit=None, export_path=''):
         dialog = await self.tg.get_dialog_by_id(dialog_id)
+        me = await self.get_my_info()
+
+        session = WorkerSession(user_id=me.id, dialog_id=dialog_id)
+        _sess = self.db.get_worker_sessions(session, Filter(
+            limit=1,
+        ))
+
+        if not _sess:
+            self.db.insert_worker_session(session)
+        else:
+            session = _sess[0]
+            if message_id == None:
+                message_id = session.last_scan_message_id
+
         utils.mkdir_nerr(export_path)
-        
+
         def process_message(msg):
+            # insert video record with status processing
+
             path = os.path.join(export_path, str(msg.id))
             utils.mkdir_nerr(path)
             stream_url = self.stream_endpoint.format(message_id=msg.id)
             duration = TG.get_video_duration_from_message(msg)
             frame_skip = FFMPEG.calculate_frame_skipped(self.default_frame_rate, duration=duration, count_frame=self.default_count_frame)
-            self.ffmpeg.generate_ss(stream_url, path, frame_skip=frame_skip)
-        
+            try:
+                self.ffmpeg.generate_ss(stream_url, path, frame_skip=frame_skip)
+                # update video recoed with status complete
+            except e as Exception:
+                # update video record with status failed
+                pass
         
         tm = ThreadManager(process_message, queue_size=self.max_workers*2, consumer_size=self.max_workers)
         tm.run()
 
         async for msg in self.tg.get_all_video_message(dialog, start_from=message_id, limit=limit):
+            video = Video.from_message(msg)
+
+            print(msg)
+
+            # if has object, update last_scanned_id to this
+
+            # if empty or failed, send message
+
             tm.send(msg)
+
+            # if completed skip
+            
 
         tm.stop()
         logging.info("Process Finished")
