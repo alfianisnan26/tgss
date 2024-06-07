@@ -9,10 +9,12 @@ import asyncio
 import concurrent.futures
 from tgss.internal.thread import ThreadManager
 import logging
+from tgss.internal.db import DB
 
 class Service:
-    def __init__(self, tg:TG, ffmpeg: FFMPEG, stream_endpoint='http://localhost:8080/stream/{message_id}', default_count_frame=10, default_frame_rate=30, max_workers=5):
+    def __init__(self, db:DB, tg:TG, ffmpeg: FFMPEG, stream_endpoint='http://localhost:8080/stream/{message_id}', default_count_frame=10, default_frame_rate=30, max_workers=5):
         self.tg:TG = tg
+        self.db:DB = db
         self.ffmpeg = ffmpeg
         self.stream_endpoint = stream_endpoint
         self.default_count_frame = default_count_frame

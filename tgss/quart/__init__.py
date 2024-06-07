@@ -18,6 +18,7 @@ app.register_error_handler(error.HTTPError, error.http_error)
 app.config['RESPONSE_TIMEOUT'] = None
 
 ffmpeg = FFMPEG()
+db = DB(Config.SQLITE_URL())
 
 svc = None
 
@@ -28,7 +29,7 @@ async def init_service():
     await client.start()
 
     tg = TG(client=client)
-    svc = Service(tg, ffmpeg, Config.STREAM_ENDPOINT())
+    svc = Service(db, tg, ffmpeg, Config.STREAM_ENDPOINT())
 
 @app.before_serving
 async def startup():

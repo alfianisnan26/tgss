@@ -5,6 +5,7 @@ import sys
 from tgss.internal.tg import TG
 from tgss.internal.service import Service
 from tgss.internal.ffmpeg import FFMPEG
+from tgss.internal.db import DB
 from tgss.quart import app
 from quart import Quart
 import subprocess
@@ -14,13 +15,17 @@ ffmpeg = FFMPEG()
 async def worker():
     async with TelegramClient(Config.SESSION() + "_worker", Config.API_ID(), Config.API_HASH()) as client:
         tg = TG(client=client)
+        db = DB(Config.SQLITE_URL())
         svc = Service(
+            db,
             tg,
             ffmpeg,
             stream_endpoint=Config.STREAM_ENDPOINT(),
             default_count_frame=Config.FRAME_COUNT(),
             max_workers=Config.THREAD_MAX_WORKERS(),
             )
+
+        
 
         message_id = None
         is_single = False

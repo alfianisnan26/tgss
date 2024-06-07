@@ -34,3 +34,6 @@ class Config:
 
     def THREAD_MAX_WORKERS():
         return int(os.getenv("THREAD_MAX_WORKERS"))
+
+    def SQLITE_URL():
+        return int(os.getenv("SQLITE_URL"))
