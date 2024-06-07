@@ -2,6 +2,7 @@ import os
 import subprocess
 import av
 import numpy as np
+import logging
 
 
 class FFMPEG:
@@ -13,18 +14,32 @@ class FFMPEG:
             'ffmpeg',
             '-hide_banner',
             '-i', link,
-            '-vf', f"select='not(mod(n\,{frame_skip}))',setpts='N/({frame_rate}*TB)'",
+            '-vf', f"select='not(mod(n\\,{frame_skip}))',setpts='N/({frame_rate}*TB)'",
             '-q:v', '2',
             os.path.join(dir, "%d.png")
         ]
 
-        subprocess.run(ffmpeg_cmd)
+        try:
+            # Run the command and capture output
+            result = subprocess.run(
+                ffmpeg_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True
+            )
+            logging.debug(result.stdout)  # Print standard output if needed
+        except subprocess.CalledProcessError as e:
+            # Print the error output
+            logging.error(f"Error occurred: {e}")
+            logging.error(f"Standard output:\n{e.stdout}")
+            logging.error(f"Standard error:\n{e.stderr}")
         
     def get_video_info(self, link):
         container = av.open(link)
         stream = container.streams.video[0]
         
-        print(stream)
+        logging.debug(stream)
 
         # Get video information
         if hasattr(stream, 'rate'):

@@ -5,6 +5,7 @@ from telethon.client import TelegramClient
 from telethon.types import InputMessagesFilterVideo
 import telethon
 import asyncio
+import logging
 
 class TG:
     def __init__(self, client:TelegramClient):
@@ -17,7 +18,7 @@ class TG:
                 if type(attr) == telethon.tl.types.DocumentAttributeVideo:
                     duration = attr.duration        
         except:
-            print("duration attribute not found")
+            logging.error("duration attribute not found")
             
         return duration
     
@@ -57,7 +58,7 @@ class TG:
             if msg != None:
                 return msg
 
-            print("Retrying:", retry, "For:", fwd_msg.id)
+            logging.warn("Retrying:", retry, "For:", fwd_msg.id)
             await asyncio.sleep(delay)
             
     def build_file_generator(self, message, file_size, until_bytes, from_bytes):

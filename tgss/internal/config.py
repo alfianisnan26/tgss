@@ -13,18 +13,9 @@ class Config:
 
     def PHONE():
         return os.getenv("PHONE")
-
-    def SECRET_KEY():
-        return os.getenv("SECRET_KEY")
     
-    def FILES_DIRECTORY():
-        return os.getenv("FILES_DIRECTORY")
-
     def DIALOG_ID():
         return int(os.getenv("DIALOG_ID"))
-
-    def BOT_ID():
-        return int(os.getenv("BOT_ID"))
 
     def FRAME_COUNT():
         return int(os.getenv("FRAME_COUNT"))
@@ -40,3 +31,6 @@ class Config:
     
     def STREAM_ENDPOINT():
         return os.getenv("STREAM_ENDPOINT")
+
+    def THREAD_MAX_WORKERS():
+        return int(os.getenv("THREAD_MAX_WORKERS"))

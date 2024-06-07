@@ -22,6 +22,8 @@
     </script>
 </head>
 <body>
+    {% include 'header.html' %}
+    
     <h1>Dialogs</h1>
     <table border="1">
         <thead>
@@ -29,6 +31,7 @@
                 <th>ID</th>
                 <th>Name</th>
                 <th>Action</th>
+                
             </tr>
         </thead>
         <tbody>
@@ -38,6 +41,7 @@
                     <td>{{ dialog.name }}</td>
                     <td>
                         <button class="copy-button" onclick="copyToClipboard('{{ dialog.id }}')">Copy</button>
+                        <a href="/dialogs/{{ dialog.id }}/last_message">Last Message</a>
                     </td>
                 </tr>
             {% endfor %}

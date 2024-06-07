@@ -7,7 +7,7 @@ from tgss.internal.ffmpeg import FFMPEG
 from tgss.internal.tg import TG
 from tgss.internal.service import Service
 from tgss.internal import error
-Config.init()
+
 
 app = Quart(__name__)
 
@@ -49,6 +49,11 @@ async def last_message():
     last_message = await svc.get_last_video_message(Config.DIALOG_ID())
     return await render_template('last_message.html', last_message=last_message)
 
+@app.route('/dialogs/<int:dialog_id>/last_message')
+async def last_message_with_dialog(dialog_id = Config.DIALOG_ID):
+    last_message = await svc.get_last_video_message(dialog_id)
+    return await render_template('last_message.html', last_message=last_message)
+
 @app.route('/stream/<int:message_id>')
 async def transmit_file(message_id):
     range_header = request.headers.get('Range', 0)
@@ -62,6 +67,3 @@ async def transmit_file(message_id):
         abort(response_code, 'Invalid range.')
         
     return Response(file_generator(), headers=headers, status=response_code)
-
-if __name__ == '__main__':
-    app.run(port=Config.SERVER_PORT())

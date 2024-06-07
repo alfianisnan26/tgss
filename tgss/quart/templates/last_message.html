@@ -23,13 +23,22 @@
     </script>
 </head>
 <body>
+    {% include 'header.html' %}
+    
     <h1>Last Message Information</h1>
     <ul>
-        <li><strong>ID:</strong> {{ last_message.id }} <button class="copy-button" onclick="copyToClipboard('{{ last_message.id }}')">Copy</button></li> 
+        <li><strong>ID:</strong> {{ last_message.id }} <button class="copy-button" onclick="copyToClipboard('{{ last_message.id }}')">Copy</button></li>
         
+        {% if last_message.url %}
         <li><strong>URL:</strong> <a target='_blank' href='{{ last_message.url }}'>{{ last_message.url }}</a></li>
+        {% endif %}
+        
+        {% if last_message.peer_id %}
         <li><strong>Peer ID:</strong> {{ last_message.peer_id }}</li>
+        {% endif %}
+        
         <li><strong>Dialog ID:</strong> {{ last_message.dialog_id }}</li>
+        
         <li><strong>Dialog Name:</strong> {{ last_message.dialog_name }}</li>
     </ul>
 </body>
