@@ -16,7 +16,7 @@ import traceback
 from telethon.tl.types import Message
 
 class Service:
-    def __init__(self, db:DB, tg:TG, ffmpeg: FFMPEG, stream_endpoint='http://localhost:8080/stream/{message_id}', default_count_frame=10, default_frame_rate=30, max_workers=5, ss_export_dir = 'ss'):
+    def __init__(self, db:DB, tg:TG, ffmpeg: FFMPEG, stream_endpoint='http://localhost:8080/stream/{message_id}', default_count_frame=10, default_frame_rate=30, max_workers=5, ss_export_dir = 'ss', max_retries=3):
         self.tg:TG = tg
         self.db:DB = db
         self.ffmpeg = ffmpeg
@@ -25,6 +25,7 @@ class Service:
         self.default_frame_rate = default_frame_rate
         self.max_workers = max_workers
         self.ss_export_dir = ss_export_dir
+        self.max_retries = max_retries
     
 
     def print_message_info(msg):
@@ -59,10 +60,10 @@ class Service:
         return await self.tg.get_my_info()
           
     def __consumer(self, msg:ConsumerMessage):
+            logging.info(f"Start to process {msg}")
+            
             video = msg.video
             
-            logging.info(f"Start to process {video}")
-
             try:
                 video.status = Video.status_processing
                 self.db.update_video(video.id_only())
@@ -94,10 +95,14 @@ class Service:
                 video.status = Video.status_failed
                 
                 logging.error(f"Process video {video.id} failed :(\n{e}")
+                
+                ret = msg.retry()
+                if ret:
+                    logging.warn(f"Process video {video.id} is set to retry. retry credit {ret}")
             
             self.db.update_video(video.id_only())
             
-    def __producer(self, video:Video, session: WorkerSession,):
+    def __producer(self, video:Video, session: WorkerSession, is_update_last_message_id:bool=True):
         
         available_preview = self.get_previews(video.id) 
         available_video = utils.get_first(self.db.get_videos(video.id_only(), filter=Filter(limit=1)))
@@ -108,7 +113,9 @@ class Service:
                 logging.warn(f"Video skipped: {available_video}\n{available_preview}")
                 return
         
-        session.last_scan_message_id = video.message_id
+        if is_update_last_message_id:
+            session.last_scan_message_id = video.message_id
+            
         self.db.update_worker_session(session)
         
         video.status = Video.status_waiting
@@ -122,6 +129,7 @@ class Service:
         )
               
     async def start_ss_worker_direct(self, dialog_id, message_id=None, limit=None):
+        is_update_last_message_id = True
         
         dialog = await self.tg.get_dialog_by_id(dialog_id)
         me = await self.get_my_info()
@@ -137,6 +145,8 @@ class Service:
             session = available_session
             if message_id == None:
                 message_id = session.last_scan_message_id
+            else:
+                is_update_last_message_id = False
 
         utils.mkdir_nerr(self.ss_export_dir)
         
@@ -151,9 +161,11 @@ class Service:
                 video = Video(dialog_id=dialog_id)
                 video.from_message(msg)
                 
-                msg = self.__producer(video, session)
+                msg = self.__producer(video, session, is_update_last_message_id)
                 if msg:
-                    tm.send(msg)
+                    msg.retries = self.max_retries
+                    msg.retry_func = lambda msg:tm.send(msg)
+                    msg.attempt()
                     
             except Exception as e:
                 traceback.print_tb(e.__traceback__)

@@ -25,12 +25,12 @@ async def worker():
             default_count_frame=Config.FRAME_COUNT(),
             max_workers=Config.THREAD_MAX_WORKERS(),
             ss_export_dir=Config.SS_EXPORT_DIR(),
+            max_retries=Config.MAX_RETRIES(),
             )
 
         
 
         message_id = None
-        is_single = False
         limit = None
 
         if len(sys.argv) > 1:

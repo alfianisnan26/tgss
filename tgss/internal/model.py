@@ -122,6 +122,28 @@ class Filter:
         self.offset = offset
     
 class ConsumerMessage:
-    def __init__(self, video:Video, available_frame:int=0) -> None:
+    def __init__(self, video:Video, retry_func=None, available_frame:int=0, retries:int=0) -> None:
         self.video = video
         self.available_frame = available_frame
+        self.retries = retries + 1
+        self.retry_func = retry_func
+        
+    def retry(self):
+        if self.retries > 0:
+            self.retries -= 1
+            if self.retry_func:
+                self.retry_func(self)
+            return self.retries
+        
+        return None
+    
+    def attempt(self):self.retry()
+    
+    def __str__(self) -> str:
+        return json.dumps({
+                "video": self.video.to_dict(),
+                "retries": self.retries,
+            }, indent=4)
+        
+        
+       

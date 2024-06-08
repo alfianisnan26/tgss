@@ -40,3 +40,6 @@ class Config:
     
     def DEBUG():
         return os.getenv("DEBUG") == "true"
+    
+    def MAX_RETRIES():
+        return int(os.getenv("MAX_RETRIES"))
