@@ -1,5 +1,6 @@
 import re
 import os
+import aiofiles
 from telethon.types import Message
 
 def extract_links(string):
@@ -50,3 +51,12 @@ def calculate_bitrate(duration_seconds, size_bytes):
     bitrate = size_bits / duration_seconds
     
     return bitrate
+
+async def async_rename_file(self, current_file_path, new_file_path):
+    try:
+        async with aiofiles.os.rename(current_file_path, new_file_path):
+            self.logger.debug(f"rename_file: File renamed from {current_file_path} to {new_file_path}")
+    except FileNotFoundError:
+        self.logger.error("rename_file: File not found.")
+    except Exception as e:
+        self.logger.error(f"rename_file: An error occurred: {e}")

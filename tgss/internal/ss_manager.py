@@ -5,6 +5,11 @@ from concurrent.futures import ThreadPoolExecutor
 from moviepy.editor import VideoFileClip
 import imageio
 
+import aiofiles
+import os
+
+from tgss.internal import utils
+
 class IntervalMessage:
     def __init__(self, i, interval, lock) -> None:
         self.__i = i
@@ -82,7 +87,7 @@ class ScreenshotWorker:
         try:
             hours, remainder = divmod(interval, 3600)
             minutes, seconds = divmod(remainder, 60)
-            timestamp = "{:03}_{:02}:{:02}:{:02f}".format(index, int(hours), int(minutes), seconds)
+            timestamp = "{:03}_{:02}:{:02}:{:02}".format(index, int(hours), int(minutes), int(seconds))
             
             output_path = os.path.join(self.output_dir, f"{timestamp}.png")
             
@@ -92,6 +97,7 @@ class ScreenshotWorker:
                 frame = clip.get_frame(interval)
                 imageio.imwrite(output_path, frame)
                 self.logger.info(f"__process: Screenshot saved at: {output_path}")
+                
             else:
                 self.logger.warning(f"__process: Screenshot already available at: {output_path}")
             
