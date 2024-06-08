@@ -17,6 +17,7 @@ app.register_error_handler(404, error.not_found)
 app.register_error_handler(405, error.invalid_method)
 app.register_error_handler(error.HTTPError, error.http_error)
 app.config['RESPONSE_TIMEOUT'] = None
+app.config['REQUEST_TIMEOUT'] = 120
 
 ffmpeg = FFMPEG()
 db = DB(Config.SQLITE_URL())

@@ -46,3 +46,6 @@ class Config:
     
     def SS_PARTIAL_RETRY():
         return os.getenv("SS_PARTIAL_RETRY") == "true"
+    
+    def USE_RELOADER():
+        return os.getenv("USE_RELOADER") == "true"

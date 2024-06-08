@@ -91,5 +91,9 @@ class FFMPEG:
         actual_interval = total_frames / count_frame
         frame_skipped = actual_interval - 1
         
-        return int(frame_skipped), frame_skipped * available_frame
+        start_frame = frame_skipped * available_frame
+        if start_frame > 0:
+            start_frame -= 1 # backstep a single frame to maintain the successful frame export on the previous frame
+        
+        return int(frame_skipped), start_frame
         

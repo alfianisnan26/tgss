@@ -6,8 +6,7 @@ import copy
 from telethon.tl.types import DocumentAttributeFilename, DocumentAttributeVideo
 from tgss.internal import utils
 class Video:
-    status_unknown = 0
-    status_waiting = 1
+    status_waiting = 0
     status_processing = 2
     status_ready = 3
     status_downloading = 4
