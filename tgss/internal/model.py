@@ -52,10 +52,7 @@ class Video:
 
     
     def id_only(self):
-        video = copy.deepcopy(self)
-        video.message_id = None
-        video.dialog_id = None
-        return video
+        return Video(id=self.id)
     
 
     def from_message(self, msg:telethon.tl.patched.Message):
@@ -114,6 +111,14 @@ class WorkerSession:
         self.dialog_id = dialog_id
         self.last_scan_message_id = last_scan_message_id
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "dialog_id": self.dialog_id,
+            "last_scan_message_id": self.last_scan_message_id,
+        }
+    
 class Filter:
     def __init__(self, sort_by=None, sort_direction='ASC', limit=10, offset=0):
         self.sort_by = sort_by

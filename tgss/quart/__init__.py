@@ -1,14 +1,15 @@
 import asyncio
-from quart import Quart, render_template, Response, request
+from quart import Quart, jsonify, Response, request, send_from_directory
 from telethon import TelegramClient
 from tgss.internal.config import Config
-from tgss.internal.error import abort
+
 from tgss.internal.ffmpeg import FFMPEG
 from tgss.internal.tg import TG
 from tgss.internal.db import DB
 from tgss.internal.service import Service
-from tgss.internal import error
-
+from tgss.quart import error
+from tgss.internal.model import Video, Filter, WorkerSession
+import os
 
 app = Quart(__name__)
 
@@ -39,34 +40,114 @@ async def startup():
 
 @app.route('/')
 async def me():
-    user_info = await svc.get_my_info()
-    return await render_template('user_info.html', user_info=user_info)
+    o = await svc.get_my_info()
+    return jsonify({
+        'id': o.id,
+        'first_name': o.first_name,
+        'last_name': o.last_name,
+        "username": o.username,
+        "phone": o.phone,
+    })
+
+@app.route('/dialogs/last_message')
+async def last_message_with_dialog():
+    dialog_id = request.args.get('dialog_id')
+    last_message = await svc.get_last_video_message(dialog_id)
+    return jsonify(last_message)
 
 @app.route('/dialogs')
 async def dialogs():
     dialogs = await svc.get_available_dialogs()
-    return await render_template('dialogs.html', dialogs=dialogs)
-
-@app.route('/last_message')
-async def last_message():
-    last_message = await svc.get_last_video_message(Config.DIALOG_ID())
-    return await render_template('last_message.html', last_message=last_message)
-
-@app.route('/dialogs/<int:dialog_id>/last_message')
-async def last_message_with_dialog(dialog_id = Config.DIALOG_ID):
-    last_message = await svc.get_last_video_message(dialog_id)
-    return await render_template('last_message.html', last_message=last_message)
+    return jsonify([{
+            'id': o.id,
+            'name': o.name,
+            'last_message_path': f'/dialogs/last_message?dialog_id={o.id}'
+        } for o in dialogs 
+    ])
 
 @app.route('/stream/<int:message_id>')
-async def transmit_file(message_id):
+async def transmit_file(message_id:int):
     range_header = request.headers.get('Range', 0)
 
     file_generator, headers, response_code = await svc.transmit_file(dialog_id=Config.DIALOG_ID(), message_id=message_id, range_header=range_header)
     if response_code == 404:
-        abort(response_code, 'Message Not Found.')
+        error.abort(response_code, 'Message Not Found.')
     if response_code == 400:
-        abort(response_code, 'Invalid media type.')
+        error.abort(response_code, 'Invalid media type.')
     if response_code == 416:
-        abort(response_code, 'Invalid range.')
+        error.abort(response_code, 'Invalid range.')
         
     return Response(file_generator(), headers=headers, status=response_code)
+
+@app.route('/videos/<int:video_id>/previews')
+async def get_video_preview_list(video_id:int):
+    previews = svc.get_previews(video_id)
+    previews.sort()
+    return jsonify(previews)
+
+@app.route('/videos/<int:video_id>/previews/<path:filename>')
+async def get_video_preview_ss(video_id:int, filename:str):
+    try:
+        # Serve the file from the constructed directory path
+        return await send_from_directory(os.path.join(Config.SS_EXPORT_DIR(), str(video_id)), filename)
+    except FileNotFoundError:
+        # If the file is not found, return a 404 error
+        error.abort(404)
+        
+@app.route('/videos')
+async def get_video_list():
+    limit = request.args.get('limit')
+    offset = request.args.get('offset')
+    sort_by = request.args.get('sort_by')
+    sort_direction = request.args.get('sort_direction')
+    id = request.args.get('id')
+    message_id = request.args.get('message_id')
+    dialog_id = request.args.get('dialog_id')
+    status = request.args.get('status')
+    
+    videos = svc.get_video_list(
+        ref=Video(
+                id=id,
+                message_id=message_id,
+                dialog_id=dialog_id,
+                status=status,
+            ),
+        filter=Filter(
+                sort_by=sort_by,
+                limit=limit,
+                offset=offset,
+                sort_direction=sort_direction,
+            ),
+    )
+    
+    return jsonify([o.to_dict() for o in videos])
+
+@app.route('/sessions')
+async def get_session_list():
+    limit = request.args.get('limit')
+    offset = request.args.get('offset')
+    sort_by = request.args.get('sort_by')
+    sort_direction = request.args.get('sort_direction')
+    id = request.args.get('id')
+    user_id = request.args.get('message_id')
+    dialog_id = request.args.get('dialog_id')
+    
+    sessions = svc.get_session_list(
+        ref=WorkerSession(
+                id=id,
+                user_id=user_id,
+                dialog_id=dialog_id,
+            ),
+        filter=Filter(
+                sort_by=sort_by,
+                limit=limit,
+                offset=offset,
+                sort_direction=sort_direction,
+            ),
+    )
+    
+    return jsonify([o.to_dict() for o in sessions])
+
+@app.route('/videos/<int:video_id>/favorite')
+async def switch_video_favorit(video_id:int):
+    pass

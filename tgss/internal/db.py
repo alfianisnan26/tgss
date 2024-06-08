@@ -80,7 +80,7 @@ class DB:
         where_conditions = []
 
         for field, value in fields.items():
-            if value is not None and field.endswith("id"):
+            if value is not None and field:
                 where_conditions.append(f"{field} = {value}")
 
         where_clause = " AND ".join(where_conditions)
@@ -143,7 +143,7 @@ class DB:
             logging.error(f"Error on insert video {video.id} | {e}")
         
         if update:
-            self.update_video(video.id_only())
+            self.update_video(video)
             logging.debug(f"Complete to update video {video.id}")
 
     def get_worker_sessions(self, ref: WorkerSession, filter:Filter) -> List[WorkerSession]:

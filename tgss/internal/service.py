@@ -42,7 +42,6 @@ class Service:
                 'url': None,
                 "peer_id": None,
                 "dialog_id": dialog_id,
-                "dialog_name": dialog.name,
             }
 
             
@@ -69,7 +68,7 @@ class Service:
             
             try:
                 video.status = Video.status_processing
-                self.db.update_video(video.id_only())
+                self.db.update_video(video)
             except Exception as e:
                 logging.error(f"Failed to upsert video with error: {e} \n {video}")
                 return
@@ -112,7 +111,7 @@ class Service:
                 if ret:
                     logging.warn(f"Process video {video.id} is set to retry. retry credit {ret}")
             
-            self.db.update_video(video.id_only())
+            self.db.update_video(video)
             
     def __producer(self, video:Video, session: WorkerSession, is_update_last_message_id:bool=True):
         
@@ -206,12 +205,28 @@ class Service:
                 # Check if the file has the prefix "file" and ends with ".png"
                 if filename.endswith(".png"):
                     # Construct the full file path and append it to the list
-                    preview_files.append(os.path.join(previews_dir, filename))
+                    preview_files.append(filename)
 
             return preview_files
         except Exception as e:
             logging.warn(f"Preview list of {id} caught an error: {e}")
             return []
+        
+    def get_video_list(self, ref:Video, filter:Filter):
+        if not filter.limit:
+            filter.limit = 50
+        if not filter.offset:
+            filter.offset = 0
+        
+        return self.db.get_videos(ref, filter)
+    
+    def get_session_list(self, ref:WorkerSession, filter:Filter):
+        if not filter.limit:
+            filter.limit = 50
+        if not filter.offset:
+            filter.offset = 0
+            
+        return self.db.get_worker_sessions(ref, filter)
     
     async def transmit_file(self, dialog_id, message_id, range_header):
         dialog = await self.tg.get_dialog_by_id(dialog_id)
