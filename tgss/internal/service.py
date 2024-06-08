@@ -1,26 +1,26 @@
 from datetime import datetime
 from math import ceil, floor
+from mimetypes import guess_type
 from tgss.internal.tg import TG
-from tgss.internal.ffmpeg import FFMPEG
-from telethon.types import InputMessagesFilterVideo
 import tgss.internal.utils as utils
 import os
-from PIL import Image
 import asyncio
-import concurrent.futures
-from tgss.internal.thread import ThreadManager
+from tgss.internal.async_manager import AsyncManager
 import logging
 from tgss.internal.db import DB
 from tgss.internal.model import ConsumerMessage, Video, WorkerSession, Filter
 import traceback
 from telethon.tl.types import Message
+from tgss.internal.cache import AsyncCache
+from tgss.internal.ss_manager import ScreenshotManager
 
 class Service:
-    def __init__(self, db:DB, tg:TG, ffmpeg: FFMPEG, stream_endpoint='http://localhost:8080/stream/{message_id}', default_count_frame=10, default_frame_rate=30, max_workers=5, ss_export_dir = 'ss', max_retries=3, debug=False, is_partial_retry=True, is_use_last_message_id=True):
+    def __init__(self, db:DB, tg:TG, sm:ScreenshotManager=None, stream_host='http://localhost:8080', default_count_frame=10, default_frame_rate=30, max_workers=5, ss_export_dir = 'ss', max_retries=3, debug=False, is_partial_retry=True, is_use_last_message_id=True, cache:AsyncCache=AsyncCache(), default_chunk_size=1024*1024):
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.tg:TG = tg
         self.db:DB = db
-        self.ffmpeg = ffmpeg
-        self.stream_endpoint = stream_endpoint
+        self.sm:ScreenshotManager=sm
+        self.stream_endpoint = stream_host + "/stream?message_id={message_id}&dialog_id={dialog_id}"
         self.default_count_frame = default_count_frame
         self.default_frame_rate = default_frame_rate
         self.max_workers = max_workers
@@ -29,30 +29,33 @@ class Service:
         self.debug = debug
         self.is_partial_retry = is_partial_retry
         self.is_use_last_message_id = is_use_last_message_id
+        self.cache = cache
+        self.default_chunk_size = default_chunk_size
     
-
-    def print_message_info(msg):
-        logging.info("ID:", msg.id)
-
     async def get_last_video_message(self, dialog_id):
         dialog = await self.tg.get_dialog_by_id(dialog_id)
-        async for msg in self.tg.get_all_video_message(dialog, limit=1):
+        if not dialog:
+            return None
+        
+        self.logger.debug(f"get_last_video_message: get dialog by id on last_vide_message: {dialog} [{dialog_id}]")
+        
+        msg = await self.tg.get_video_message(dialog)
+        
+        output = {
+            'id': msg.id,
+            'url': None,
+            "peer_id": None,
+            "dialog_id": dialog_id,
+        }
 
-            output = {
-                'id': msg.id,
-                'url': None,
-                "peer_id": None,
-                "dialog_id": dialog_id,
-            }
+        
+        if hasattr(msg.peer_id, 'channel_id'):
+            id = msg.peer_id.channel_id
+            url = f"https://t.me/c/{id}/{msg.id}"
+            output['url'] = url
+            output['peer_id'] = id
 
-            
-            if hasattr(msg.peer_id, 'channel_id'):
-                id = msg.peer_id.channel_id
-                url = f"https://t.me/c/{id}/{msg.id}"
-                output['url'] = url
-                output['peer_id'] = id
-
-            return output
+        return output
         
 
     async def get_available_dialogs(self):
@@ -61,8 +64,8 @@ class Service:
     async def get_my_info(self):
         return await self.tg.get_my_info()
           
-    def __consumer(self, msg:ConsumerMessage):
-            logging.info(f"Start to process {msg}")
+    async def __consumer(self, msg:ConsumerMessage):
+            self.logger.info(f"__consumer: Start to process {msg}")
             
             video = msg.video
             is_retryable = False
@@ -71,50 +74,38 @@ class Service:
                 video.status = Video.status_processing
                 self.db.update_video(video)
             except Exception as e:
-                logging.error(f"Failed to upsert video with error: {e} \n {video}")
+                self.logger.error(f"__consumer: Failed to upsert video with error: {e} \n {video}")
                 return
             
-            path = os.path.join(self.ss_export_dir, str(video.id))
-            utils.mkdir_nerr(path)
             
-            stream_url = self.stream_endpoint.format(message_id=video.message_id)
-            
-            try:
-                frame_rate = FFMPEG.get_frame_rate(stream_url)
-            except:
-                frame_rate = self.default_frame_rate
-                logging.warn(f"Frame is estimated statically to {frame_rate}")
-            
-            frame_skip, start_frame = FFMPEG.calculate_frame_skipped(frame_rate, duration=video.duration, count_frame=self.default_count_frame, available_frame=msg.available_frame)
-            logging.debug(f"frame analyzed | frame_rate: {frame_rate} | frame_skip: {frame_skip} | start_frame: {start_frame}")
-            
-            # still on research
-            # if video.bitrate:
-            #     stream_url += f"?chunk_size={video.bitrate}"
+            stream_url = self.stream_endpoint.format(
+                message_id=video.message_id,
+                dialog_id=msg.dialog_id,
+                )
             
             try:
+                worker = self.sm.prepare(
+                    stream_url,
+                    sub_path=str(video.id)
+                )
                 
-                self.ffmpeg.generate_ss(stream_url, path, frame_skip=frame_skip,frame_rate=frame_rate, start_frame=start_frame, start_number=msg.available_frame)
-                
-                available_preview = self.get_previews(video.id)
-                if len(available_preview) < self.default_count_frame:
-                    video.status = Video.status_partially_ready
-                    is_retryable = True
-                    logging.warn(f"Process video {video.id} completed partially :/")
-                else:
+                if await worker.run():
+                    self.logger.info(f"__consumer: Worker run success of {video.id}")
                     video.status = Video.status_ready
-                    logging.info(f"Process video {video.id} completed :D")
+                else:
+                    self.logger.warning(f"__consumer: Worker run partially success of {video.id}")
+                    is_retryable = True
+                    video.status = Video.status_partially_ready
                     
             except Exception as e:
-                video.status = Video.status_failed
+                self.logger.error(f"__consumer: Worker run failed of {video.id} with error {e}")
                 is_retryable = True
+                video.status = Video.status_failed
                 
-                logging.error(f"Process video {video.id} failed :(\n{e}")
-            
             if is_retryable:
                 ret = msg.retry()
                 if ret:
-                    logging.warn(f"Process video {video.id} is set to retry. retry credit {ret}")
+                    self.logger.warning(f"__consumer: Retry the message of {video.id} with credit of {ret}")
             
             self.db.update_video(video)
             
@@ -127,9 +118,9 @@ class Service:
             partial_status = ((len(available_preview) < self.default_count_frame) or available_video.status == Video.status_partially_ready) and self.is_partial_retry
             if specific_status or partial_status: 
                 video = available_video
-                logging.warn(f"Video {video.id} will be re-run to process because of specific_status: {specific_status} [{available_video.status}], partial_status: {partial_status} [{len(available_preview)}]")
+                self.logger.warning(f"__producer: Video {video.id} will be re-run to process because of specific_status: {specific_status} [{available_video.status}], partial_status: {partial_status} [{len(available_preview)}]")
             else:
-                logging.warn(f"Video skipped: {available_video}\n{available_preview}")
+                self.logger.warning(f"__producer: Video skipped: {available_video}\n{available_preview}")
                 return None
         
         if is_update_last_message_id:
@@ -141,7 +132,7 @@ class Service:
         video.created_at = datetime.now().isoformat()
         self.db.upsert_video(video)
         
-        logging.info(f"Queue video to process: {video.id}")
+        self.logger.info(f"__producer: Queue video to process: {video.id}")
         return ConsumerMessage(
             video=video,
             available_frame=len(available_preview),
@@ -166,11 +157,15 @@ class Service:
                 message_id = session.last_scan_message_id
             else:
                 is_update_last_message_id = False
+                
+        self.logger.debug(f"start_ss_worker_direct: Success obtaining session: {session}")
 
         utils.mkdir_nerr(self.ss_export_dir)
         
-        tm = ThreadManager(self.__consumer, queue_size=self.max_workers*2, consumer_size=self.max_workers)
-        tm.run()
+        am = AsyncManager(self.__consumer, queue_size=self.max_workers*2, consumer_size=self.max_workers)
+        asyncio.create_task(am.run())
+        
+        self.logger.debug(f"start_ss_worker_direct: Starting to getting messages")
 
         async for msg in self.tg.get_all_video_message(dialog, start_from=message_id, limit=limit):
             ref = msg
@@ -187,17 +182,18 @@ class Service:
                 msg = self.__producer(video, session, is_update_last_message_id)
                 if msg:
                     msg.retries = self.max_retries
-                    msg.retry_func = lambda msg:tm.send(msg)
+                    msg.retry_func = lambda msg: asyncio.create_task(am.send(msg))
+                    msg.dialog_id = dialog_id
                     msg.attempt()
                     
             except Exception as e:
                 if self.debug:
                     traceback.print_tb(e.__traceback__)
-                logging.error(f"Failed on produce video queue: {e}\n{ref}")
-            
-
-        tm.stop()
-        logging.info("Process Finished")
+                self.logger.error(f"start_ss_worker_direct: Failed on produce video queue: {e}\n{ref}")
+        
+        
+        await am.stop()
+        self.logger.info("start_ss_worker_direct: Process Finished")
         
     def get_previews(self, id) -> list[str]:
         try:
@@ -218,7 +214,7 @@ class Service:
 
             return preview_files
         except Exception as e:
-            logging.warn(f"Preview list of {id} caught an error: {e}")
+            self.logger.warning(f"get_previews: Preview list of {id} caught an error: {e}")
             return []
         
     def get_video_list(self, ref:Video, filter:Filter):
@@ -237,25 +233,35 @@ class Service:
             
         return self.db.get_worker_sessions(ref, filter)
     
-    async def transmit_file(self, dialog_id, message_id, range_header, chunk_size):
-        if not chunk_size:
-            chunk_size = 1028 * 1028
+    async def transmit_file(self, dialog_id, message_id, chunk_size, range_header):  
         
-        chunk_size = int(chunk_size)
-        
+        if not chunk_size or chunk_size == 0:
+            chunk_size = self.default_chunk_size
+            
+        if dialog_id == None or message_id == None:
+            self.logger.error(f"transmit_file: no dialog_id or message_id [{dialog_id},{message_id}]")
+            return None, None, 400
+               
         dialog = await self.tg.get_dialog_by_id(dialog_id)
-        message = None
-        async for msg in self.tg.get_all_video_message(dialog, message_id, limit=1):
-            message = msg
-            break
-        
+        if dialog == None:
+            self.logger.error(f"transmit_file: no dialog [{dialog_id}]")
+            return None, None, 404
+            
+        message = await self.tg.get_video_message(dialog, message_id=message_id)
         if message == None:
+            self.logger.error("transmit_file: no message")
             return None, None, 404
     
         
         file_name, file_size, mime_type = TG.get_file_properties(message)
-        if file_name == None:
+        if file_size == None:
+            self.logger.error("transmit_file: no file size")
             return None, None, 400
+        
+        if file_name == None:
+            file_name = "video.mp4"
+            mime_type = guess_type(file_name)
+            
         
         if range_header:
             from_bytes, until_bytes = range_header.replace("bytes=", "").split("-")
@@ -275,5 +281,8 @@ class Service:
                 "Content-Disposition": f'attachment; filename="{file_name}"',
                 "Accept-Ranges": "bytes",
             }
+        
+        
+        self.logger.info(f"Service.transmit_file: request of dialog_id: {dialog_id}, message_id: {message_id}, chunk_size: {chunk_size}")
 
         return self.tg.build_file_generator(message, file_size, until_bytes, from_bytes, chunk_size=chunk_size), headers, 206 if range_header else 200

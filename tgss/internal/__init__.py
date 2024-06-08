@@ -1,6 +1,7 @@
 from tgss.internal.config import Config
 import os
 import logging
+from tgss.internal import utils
 
 Config.init()
 
@@ -31,8 +32,10 @@ formatter = ColorFormatter(log_format, datefmt=date_format)
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(formatter)
 
+utils.mkdir_nerr("log")
 # Configure the root logger
-logging.basicConfig(level=logging.DEBUG if Config.DEBUG() else logging.INFO, handlers=[console_handler])
+logging.basicConfig(level=logging.DEBUG if Config.DEBUG() else logging.INFO,
+                    handlers=[console_handler, logging.FileHandler('log/daemon.log')])
 
-logging.info("Initialize Configuration")
+logging.info("Init: Initialize Configuration")
 

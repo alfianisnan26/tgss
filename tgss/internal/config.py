@@ -29,8 +29,8 @@ class Config:
     def SERVER_PORT():
         return os.getenv("SERVER_PORT")
     
-    def STREAM_ENDPOINT():
-        return os.getenv("STREAM_ENDPOINT")
+    def STREAM_HOST():
+        return os.getenv("STREAM_HOST")
 
     def THREAD_MAX_WORKERS():
         return int(os.getenv("THREAD_MAX_WORKERS"))
@@ -52,3 +52,9 @@ class Config:
     
     def USE_LAST_MESSAGE_ID():
         return os.getenv("USE_LAST_MESSAGE_ID") == "true"
+    
+    def CACHE_TTL():
+        return int(os.getenv("CACHE_TTL"))
+    
+    def CHUNK_SIZE():
+        return int(os.getenv("CHUNK_SIZE"))

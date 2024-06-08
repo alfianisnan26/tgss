@@ -6,49 +6,63 @@ from telethon.types import InputMessagesFilterVideo
 import telethon
 import asyncio
 import logging
+from tgss.internal.cache import AsyncCache
 
 class TG:
-    def __init__(self, client:TelegramClient):
+    __cache_ttl_dialogs = 30 * 60 # 30 minutes
+    __cache_ttl_videos = 15 * 60 # 15 minutes
+    __cache_ttl_get_my_info = 24 * 60 * 60 # A day
+    
+    def __gen_cache_key(module, id=None):
+        return f"tg:{module}{f":{id}" if id else ""}"
+    
+    def __init__(self, client:TelegramClient, cache:AsyncCache=AsyncCache()):
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.client:TelegramClient = client
+        self.cache = cache
     
     async def get_available_dialogs(self):
-        return await self.client.get_dialogs()
+        self.logger.debug(f"get_available_dialogs: Get available dialogs")
+         
+        return await self.cache.fallback(
+            key=TG.__gen_cache_key('dialogs'),
+            fallback_func=self.client.get_dialogs,
+            ttl=TG.__cache_ttl_dialogs,
+        )
 
     async def get_my_info(self):
-        return await self.client.get_me()
+        return await self.cache.fallback(
+            key=TG.__gen_cache_key('my_info'),
+            fallback_func=self.client.get_me,
+            ttl=TG.__cache_ttl_get_my_info
+        )
 
     async def get_dialog_by_id(self, id):
+        self.logger.debug(f"get_dialog_by_id: Get dialog by id {id}")
         for dialog in await self.get_available_dialogs():
             if dialog.id == id:
                 return dialog
+            
+    async def get_video_message(self, dialog, message_id=None):
+        async def get_message():
+            return await self.client.get_messages(dialog, ids=message_id, filter=filter)
+        
+        return await self.cache.fallback(
+            key=TG.__gen_cache_key(f"video:id:{message_id}" if message_id else f"video:dialog:{dialog.id}"),
+            fallback_func=get_message,
+            ttl=TG.__cache_ttl_videos,
+        )
 
-    async def get_all_video_message(self, dialog, start_from = None, limit = None) -> telethon.tl.patched.Message:
+    async def get_all_video_message(self, dialog, start_from = None, limit = None):
+        self.logger.debug(f"get_all_video_message: Get all video message")
+        
         filter = InputMessagesFilterVideo
-
-        if start_from != None and limit == 1:
-            msg = await self.client.get_messages(dialog, ids=start_from, filter=filter)
-            yield msg
+        
+        if limit == 1:
+            yield await self.get_video_message(dialog, start_from)
 
         async for msg in self.client.iter_messages(dialog, min_id=start_from if start_from != None else 0, filter=filter, limit = limit):
             yield msg
-            
-    async def get_first_reply_message(self, dialog, msg:telethon.tl.patched.Message):
-        msgs = await self.client.get_messages(dialog, min_id=msg.id)
-        for msg in msgs:
-            return msg
-        
-        return None
-
-    async def forward_and_get_reply_msg(self, dialog, msg:telethon.tl.patched.Message, retries = 5, delay = 1):
-        fwd_msg = await msg.forward_to(dialog)
-
-        for retry in range(retries):
-            msg = await self.get_first_reply_message(dialog, fwd_msg)
-            if msg != None:
-                return msg
-
-            logging.warn("Retrying:", retry, "For:", fwd_msg.id)
-            await asyncio.sleep(delay)
             
     def build_file_generator(self, message, file_size, until_bytes, from_bytes, chunk_size=None):     
         until_bytes = min(until_bytes, file_size - 1)
@@ -62,6 +76,7 @@ class TG:
         async def file_generator():
             current_part = 1
             async for chunk in self.client.iter_download(message, offset=offset, chunk_size=chunk_size, stride=chunk_size, file_size=file_size):
+                
                 if not chunk:
                     break
                 elif part_count == 1:

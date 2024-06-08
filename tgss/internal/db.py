@@ -10,6 +10,7 @@ class DB:
     tab_worker_session = "tab_worker_session"
 
     def __init__(self, db_name='local.db'):
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.db_name = db_name
         self._local = threading.local()
         self.__init_tables()
@@ -20,7 +21,7 @@ class DB:
         return self._local.connection
 
     def execute_query(self, query, *args):
-        logging.debug(f"sqlite: Execute Query {query} {args}")
+        self.logger.debug(f"execute_query: Execute Query {query} {args}")
         connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute(query, args)
@@ -127,24 +128,24 @@ class DB:
         self.__update_table(DB.tab_video, new)
 
     def upsert_video(self, video: Video) -> None:
-        logging.debug(f"Upserting video {video.id}")
+        self.logger.debug(f"upsert_video: Upserting video {video.id}")
         update = False
         try:
             video.flag_favorited = 0
             self.insert_video(video)
-            logging.debug(f"Complete to insert video {video.id}")
+            self.logger.debug(f"upsert_video: Complete to insert video {video.id}")
         except sqlite3.IntegrityError as e:
             if 'UNIQUE constraint failed' in e.__str__():
-                logging.debug(f"Update instead {video.id}")
+                self.logger.debug(f"upsert_video: Update instead {video.id}")
                 update = True
             else:
-                logging.error(f"Error integrity error on insert video {video.id} | {e}")
+                self.logger.error(f"upsert_video: Error integrity error on insert video {video.id} | {e}")
         except Exception as e:
-            logging.error(f"Error on insert video {video.id} | {e}")
+            self.logger.error(f"upsert_video: Error on insert video {video.id} | {e}")
         
         if update:
             self.update_video(video)
-            logging.debug(f"Complete to update video {video.id}")
+            self.logger.debug(f"upsert_video: Complete to update video {video.id}")
 
     def get_worker_sessions(self, ref: WorkerSession, filter:Filter) -> List[WorkerSession]:
         rows = self.__fetch_data(DB.tab_worker_session, ref, filter)

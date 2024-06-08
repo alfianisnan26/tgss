@@ -8,9 +8,9 @@ class HTTPError(Exception):
 
 error_messages = {
     400: 'Invalid request.',
-    401: 'File code is required to download the file.',
-    403: 'Invalid file code.',
-    404: 'File not found.',
+    401: 'Unauthorized.',
+    403: 'Forbidded.',
+    404: 'Data not found.',
     500: 'Internal server error.'
 }
 

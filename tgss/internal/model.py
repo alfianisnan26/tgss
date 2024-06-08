@@ -5,6 +5,7 @@ import telethon
 import copy
 from telethon.tl.types import DocumentAttributeFilename, DocumentAttributeVideo
 from tgss.internal import utils
+from tgss.internal.config import Config
 class Video:
     status_waiting = 0
     status_processing = 2
@@ -78,7 +79,7 @@ class Video:
                     
                     self.name = attr.file_name
         except:
-            logging.error("duration attribute not found")
+            logging.error("Video: duration attribute not found")
             
         if self.duration != None and self.size != None:
              self.bitrate = int(utils.calculate_bitrate(self.duration, self.size))
@@ -118,6 +119,9 @@ class WorkerSession:
             "dialog_id": self.dialog_id,
             "last_scan_message_id": self.last_scan_message_id,
         }
+        
+    def __str__(self):
+        return json.dumps(self.to_dict(), indent=4)
     
 class Filter:
     def __init__(self, sort_by=None, sort_direction='ASC', limit=10, offset=0):
@@ -127,11 +131,12 @@ class Filter:
         self.offset = offset
 
 class ConsumerMessage:
-    def __init__(self, video:Video, retry_func=None, available_frame:int=0, retries:int=0) -> None:
+    def __init__(self, video:Video, dialog_id:int=Config.DIALOG_ID(), retry_func=None, available_frame:int=0, retries:int=0) -> None:
         self.video = video
         self.available_frame = available_frame
         self.retries = retries + 1
         self.retry_func = retry_func
+        self.dialog_id = dialog_id
     
     def retry(self):
         if self.retries > 0:

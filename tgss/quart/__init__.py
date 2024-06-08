@@ -3,12 +3,12 @@ from quart import Quart, jsonify, Response, request, send_from_directory
 from telethon import TelegramClient
 from tgss.internal.config import Config
 
-from tgss.internal.ffmpeg import FFMPEG
 from tgss.internal.tg import TG
 from tgss.internal.db import DB
 from tgss.internal.service import Service
 from tgss.quart import error
 from tgss.internal.model import Video, Filter, WorkerSession
+from tgss.internal.cache import AsyncCache
 import os
 
 app = Quart(__name__)
@@ -17,10 +17,10 @@ app.register_error_handler(400, error.invalid_request)
 app.register_error_handler(404, error.not_found)
 app.register_error_handler(405, error.invalid_method)
 app.register_error_handler(error.HTTPError, error.http_error)
+
 app.config['RESPONSE_TIMEOUT'] = None
 app.config['REQUEST_TIMEOUT'] = 120
 
-ffmpeg = FFMPEG()
 db = DB(Config.SQLITE_URL())
 
 svc = None
@@ -30,9 +30,17 @@ async def init_service():
 
     client = TelegramClient(Config.SESSION() + "_server", Config.API_ID(), Config.API_HASH())
     await client.start()
-
-    tg = TG(client=client)
-    svc = Service(db, tg, ffmpeg, Config.STREAM_ENDPOINT(), ss_export_dir=Config.SS_EXPORT_DIR(), debug=Config.DEBUG())
+    
+    cache = AsyncCache(Config.CACHE_TTL())
+    asyncio.create_task(cache.start_cleanup_task())
+    
+    tg = TG(client=client, cache=cache)
+    svc = Service(db, tg,
+                  ss_export_dir=Config.SS_EXPORT_DIR(),
+                  debug=Config.DEBUG(),
+                  cache=cache,
+                  default_chunk_size=Config.CHUNK_SIZE(),
+                  )
 
 @app.before_serving
 async def startup():
@@ -52,7 +60,13 @@ async def me():
 @app.route('/dialogs/last_message')
 async def last_message_with_dialog():
     dialog_id = request.args.get('dialog_id')
+    
+    if not dialog_id:
+        dialog_id = Config.DIALOG_ID()
+    
     last_message = await svc.get_last_video_message(dialog_id)
+    if not last_message:
+        error.abort(404)
     return jsonify(last_message)
 
 @app.route('/dialogs')
@@ -65,12 +79,15 @@ async def dialogs():
         } for o in dialogs 
     ])
 
-@app.route('/stream/<int:message_id>')
-async def transmit_file(message_id:int):
-    range_header = request.headers.get('Range', 0)
+@app.route('/stream')
+async def transmit_file():
     chunk_size = request.args.get('chunk_size')
-
-    file_generator, headers, response_code = await svc.transmit_file(dialog_id=Config.DIALOG_ID(), message_id=message_id, range_header=range_header, chunk_size=chunk_size)
+    file_generator, headers, response_code = await svc.transmit_file(
+        int(request.args.get('dialog_id')),
+        int(request.args.get('message_id')),
+        int(chunk_size) if chunk_size else None,
+        request.headers.get('Range', 0),
+        )
     if response_code == 404:
         error.abort(response_code, 'Message Not Found.')
     if response_code == 400:

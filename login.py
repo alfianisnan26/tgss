@@ -13,7 +13,7 @@ async def login(sub_session):
             ping_id=ping_id
         ))
 
-        logging.info(result.stringify())
+        logging.info(f"Login: {result.stringify()}")
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
@@ -24,9 +24,9 @@ if __name__ == "__main__":
         elif sub_session == "worker":
             pass
         else:
-            logging.error("Invalid Sub Session")
+            logging.error("Login: Invalid Sub Session")
             exit(-1)
 
         asyncio.run(login(sub_session))
     else:
-        logging.error("Invalid Command")
+        logging.error("Login: Invalid Command")
