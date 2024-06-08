@@ -92,10 +92,11 @@ class Service:
                     stream_url,
                     sub_path=str(video.id)
                 )
-                
-                if await worker.run():
+                ok, msgs = await worker.run()
+                if ok:
                     self.logger.info(f"__consumer: Worker run success of {video.id}")
                     video.status = Video.status_ready
+                    video.set_ocr([msg.get_ocr() for msg in msgs.values()])
                 else:
                     self.logger.warning(f"__consumer: Worker run partially success of {video.id}")
                     is_retryable = True

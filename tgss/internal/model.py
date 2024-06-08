@@ -32,6 +32,8 @@ class Video:
                  
                  status:int=None,
                  flag_favorited:bool=None,
+                 
+                 ocr:list[str]=[],
                  ):
 
         self.id = id
@@ -47,9 +49,16 @@ class Video:
         self.created_at = created_at
         self.video_date = video_date
         self.flag_favorited = None if flag_favorited == None else (1 if flag_favorited else 0)
+        self.ocr = self.set_ocr(ocr)
     
     def is_favorited(self):
         return self.flag_favorited == 1
+    
+    def set_ocr(self, ocr: list[str]):
+        self.ocr = json.dumps(ocr)
+
+    def get_ocr(self) -> list[str]:
+        return json.loads(self.ocr)
 
     
     def id_only(self):

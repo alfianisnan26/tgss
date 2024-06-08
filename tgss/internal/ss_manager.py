@@ -3,12 +3,11 @@ import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from moviepy.editor import VideoFileClip
-import imageio
+from PIL import Image
+import pytesseract
 
-import aiofiles
 import os
 
-from tgss.internal import utils
 
 class IntervalMessage:
     def __init__(self, i, interval, lock) -> None:
@@ -16,11 +15,17 @@ class IntervalMessage:
         self.__interval = interval
         self.__ok = False
         self.__lock = lock
+        self.__ocr = ""
         
-    async def set_ok(self):
+    async def set_ok(self, ocr:str=None):
         async with self.__lock:
             self.__ok = True
+            if ocr:
+                self.__ocr = ocr
         
+    def get_ocr(self):
+        return self.__ocr
+    
     def is_ok(self):
         return self.__ok
     
@@ -64,7 +69,7 @@ class ScreenshotWorker:
             
         not_ready = self.__not_ready_intervals()
         self.logger.info(f"generate: Process finished. Success {len(self.intervals) - len(not_ready)} out of {len(self.intervals)}")
-        return len(not_ready) == 0
+        return len(not_ready) == 0, self.intervals
     
     def __not_ready_intervals(self):
         return [self.intervals[i] for i in self.intervals if not self.intervals[i].is_ok()]
@@ -90,18 +95,22 @@ class ScreenshotWorker:
             timestamp = "{:03}_{:02}:{:02}:{:02}".format(index, int(hours), int(minutes), int(seconds))
             
             output_path = os.path.join(self.output_dir, f"{timestamp}.png")
-            
+            ocr = None
             if not os.path.exists(output_path):
                 self.logger.debug(f"__process: Extracting frame at time interval: {interval}")
                 
                 frame = clip.get_frame(interval)
-                imageio.imwrite(output_path, frame)
+                image = Image.fromarray(frame)
+                ocr = pytesseract.image_to_string(image=image)
+                
+                image.save(output_path)
+                
                 self.logger.info(f"__process: Screenshot saved at: {output_path}")
                 
             else:
                 self.logger.warning(f"__process: Screenshot already available at: {output_path}")
             
-            await interval_msg.set_ok()
+            await interval_msg.set_ok(ocr=ocr)
                 
         except Exception as e:
             self.logger.error(f"__process: Error occurred while saving screenshot: {str(e)}")
