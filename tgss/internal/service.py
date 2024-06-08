@@ -118,7 +118,7 @@ class Service:
         available_preview = self.get_previews(video.id) 
         available_video = utils.get_first(self.db.get_videos(video.id_only(), filter=Filter(limit=1)))
         if available_video:
-            specific_status = available_video.status in [Video.status_failed, Video.status_unknown, Video.status_processing]
+            specific_status = available_video.status in [Video.status_failed, Video.status_waiting, Video.status_processing]
             partial_status = ((len(available_preview) < self.default_count_frame) or available_video.status == Video.status_partially_ready) and self.is_partial_retry
             if specific_status or partial_status: 
                 video = available_video
@@ -168,12 +168,16 @@ class Service:
         tm.run()
 
         async for msg in self.tg.get_all_video_message(dialog, start_from=message_id, limit=limit):
+            ref = msg
+            
             if type(msg) is not Message:
                 continue
             
             try:
                 video = Video(dialog_id=dialog_id)
                 video.from_message(msg)
+                
+                ref = video
                 
                 msg = self.__producer(video, session, is_update_last_message_id)
                 if msg:
@@ -184,7 +188,7 @@ class Service:
             except Exception as e:
                 if self.debug:
                     traceback.print_tb(e.__traceback__)
-                logging.error(f"Failed on produce video queue: {e}\n{msg}\n{msg}")
+                logging.error(f"Failed on produce video queue: {e}\n{ref}")
             
 
         tm.stop()
