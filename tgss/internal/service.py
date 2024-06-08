@@ -87,6 +87,9 @@ class Service:
             frame_skip, start_frame = FFMPEG.calculate_frame_skipped(frame_rate, duration=video.duration, count_frame=self.default_count_frame, available_frame=msg.available_frame)
             logging.debug(f"frame analyzed | frame_rate: {frame_rate} | frame_skip: {frame_skip} | start_frame: {start_frame}")
             
+            if video.bitrate:
+                stream_url += f"?chunk_size={video.bitrate}"
+            
             try:
                 
                 self.ffmpeg.generate_ss(stream_url, path, frame_skip=frame_skip,frame_rate=frame_rate, start_frame=start_frame, start_number=msg.available_frame)
@@ -232,7 +235,12 @@ class Service:
             
         return self.db.get_worker_sessions(ref, filter)
     
-    async def transmit_file(self, dialog_id, message_id, range_header):
+    async def transmit_file(self, dialog_id, message_id, range_header, chunk_size):
+        if not chunk_size:
+            chunk_size = 1028 * 1028
+        
+        chunk_size = int(chunk_size)
+        
         dialog = await self.tg.get_dialog_by_id(dialog_id)
         message = None
         async for msg in self.tg.get_all_video_message(dialog, message_id, limit=1):
@@ -266,4 +274,4 @@ class Service:
                 "Accept-Ranges": "bytes",
             }
 
-        return self.tg.build_file_generator(message, file_size, until_bytes, from_bytes), headers, 206 if range_header else 200
+        return self.tg.build_file_generator(message, file_size, until_bytes, from_bytes, chunk_size=chunk_size), headers, 206 if range_header else 200

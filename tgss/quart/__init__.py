@@ -68,8 +68,9 @@ async def dialogs():
 @app.route('/stream/<int:message_id>')
 async def transmit_file(message_id:int):
     range_header = request.headers.get('Range', 0)
+    chunk_size = request.args.get('chunk_size')
 
-    file_generator, headers, response_code = await svc.transmit_file(dialog_id=Config.DIALOG_ID(), message_id=message_id, range_header=range_header)
+    file_generator, headers, response_code = await svc.transmit_file(dialog_id=Config.DIALOG_ID(), message_id=message_id, range_header=range_header, chunk_size=chunk_size)
     if response_code == 404:
         error.abort(response_code, 'Message Not Found.')
     if response_code == 400:

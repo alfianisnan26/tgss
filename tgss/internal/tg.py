@@ -50,8 +50,7 @@ class TG:
             logging.warn("Retrying:", retry, "For:", fwd_msg.id)
             await asyncio.sleep(delay)
             
-    def build_file_generator(self, message, file_size, until_bytes, from_bytes):
-        chunk_size = 1024 * 1024
+    def build_file_generator(self, message, file_size, until_bytes, from_bytes, chunk_size=None):     
         until_bytes = min(until_bytes, file_size - 1)
 
         offset = from_bytes - (from_bytes % chunk_size)
