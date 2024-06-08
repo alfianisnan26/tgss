@@ -22,8 +22,8 @@ async def worker():
         tg = TG(client=client, cache=cache)
         sm = ScreenshotManager(
             Config.SS_EXPORT_DIR(),
-            # max workers
-            # max retries
+            max_workers=Config.THREAD_MAX_WORKERS(),
+            max_retries=Config.MAX_RETRIES(),
             cache=cache,
             # cache ttl
             default_count=Config.FRAME_COUNT(),

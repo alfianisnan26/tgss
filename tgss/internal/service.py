@@ -83,6 +83,10 @@ class Service:
                 dialog_id=msg.dialog_id,
                 )
             
+
+            if msg.video.bitrate:
+                stream_url = f"{stream_url}&chunk_size{msg.video.bitrate}"
+                            
             try:
                 worker = self.sm.prepare(
                     stream_url,
