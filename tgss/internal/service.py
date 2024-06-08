@@ -82,7 +82,7 @@ class Service:
             try:
                 frame_rate = FFMPEG.get_frame_rate(stream_url)
             except:
-                frame_rate = self.default_count_frame
+                frame_rate = self.default_frame_rate
                 logging.warn(f"Frame is estimated statically to {frame_rate}")
             
             frame_skip, start_frame = FFMPEG.calculate_frame_skipped(frame_rate, duration=video.duration, count_frame=self.default_count_frame, available_frame=msg.available_frame)
