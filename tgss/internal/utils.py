@@ -35,3 +35,18 @@ def mkdir_nerr(dir):
         os.mkdir(dir)
     except Exception as e:
         pass
+
+def get_first(arr):
+    if len(arr) < 1:
+        return None
+    
+    return arr[0]
+
+def calculate_bitrate(duration_seconds, size_bytes):
+    # Convert size to bits
+    size_bits = size_bytes * 8
+    
+    # Calculate bitrate
+    bitrate = size_bits / duration_seconds
+    
+    return bitrate

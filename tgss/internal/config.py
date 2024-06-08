@@ -37,3 +37,6 @@ class Config:
 
     def SQLITE_URL():
         return os.getenv("SQLITE_URL")
+    
+    def DEBUG():
+        return os.getenv("DEBUG") == "true"

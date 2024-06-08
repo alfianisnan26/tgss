@@ -30,7 +30,7 @@ async def init_service():
     await client.start()
 
     tg = TG(client=client)
-    svc = Service(db, tg, ffmpeg, Config.STREAM_ENDPOINT())
+    svc = Service(db, tg, ffmpeg, Config.STREAM_ENDPOINT(), ss_export_dir=Config.SS_EXPORT_DIR())
 
 @app.before_serving
 async def startup():

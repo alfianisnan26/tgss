@@ -10,7 +10,7 @@ from tgss.quart import app
 from quart import Quart
 import subprocess
 
-ffmpeg = FFMPEG()
+ffmpeg = FFMPEG(Config.DEBUG())
 db = DB(Config.SQLITE_URL())
 
 async def worker():
@@ -24,6 +24,7 @@ async def worker():
             stream_endpoint=Config.STREAM_ENDPOINT(),
             default_count_frame=Config.FRAME_COUNT(),
             max_workers=Config.THREAD_MAX_WORKERS(),
+            ss_export_dir=Config.SS_EXPORT_DIR(),
             )
 
         
@@ -38,7 +39,7 @@ async def worker():
             limit = int(sys.argv[2])
 
         # await svc.start_ss_worker(Config.DIALOG_ID(), Config.BOT_ID(), message_id, limit, Config.SS_EXPORT_DIR())
-        await svc.start_ss_worker_direct(Config.DIALOG_ID(), limit=limit, export_path=Config.SS_EXPORT_DIR())
+        await svc.start_ss_worker_direct(Config.DIALOG_ID(), limit=limit, export_path=Config.SS_EXPORT_DIR(), message_id=message_id)
 
 if __name__ == "__main__":
     asyncio.run(worker())

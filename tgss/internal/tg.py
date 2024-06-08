@@ -10,17 +10,6 @@ import logging
 class TG:
     def __init__(self, client:TelegramClient):
         self.client:TelegramClient = client
-
-    def get_video_duration_from_message(msg:telethon.tl.patched.Message):
-        duration = 60
-        try:
-            for attr in msg.video.attributes:
-                if type(attr) == telethon.tl.types.DocumentAttributeVideo:
-                    duration = attr.duration        
-        except:
-            logging.error("duration attribute not found")
-            
-        return duration
     
     async def get_available_dialogs(self):
         return await self.client.get_dialogs()
@@ -92,7 +81,6 @@ class TG:
         
         return file_generator
     
-            
     def get_file_properties(message: telethon.tl.patched.Message):
         file_name = message.file.name
         file_size = message.file.size or 0

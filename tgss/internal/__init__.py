@@ -32,7 +32,7 @@ console_handler = logging.StreamHandler()
 console_handler.setFormatter(formatter)
 
 # Configure the root logger
-logging.basicConfig(level=logging.INFO, handlers=[console_handler])
+logging.basicConfig(level=logging.DEBUG if Config.DEBUG() else logging.INFO, handlers=[console_handler])
 
 logging.info("Initialize Configuration")
 

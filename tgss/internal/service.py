@@ -1,3 +1,4 @@
+from datetime import datetime
 from math import ceil, floor
 from tgss.internal.tg import TG
 from tgss.internal.ffmpeg import FFMPEG
@@ -10,10 +11,12 @@ import concurrent.futures
 from tgss.internal.thread import ThreadManager
 import logging
 from tgss.internal.db import DB
-from tgss.internal.model import Video, WorkerSession, Filter
+from tgss.internal.model import ConsumerMessage, Video, WorkerSession, Filter
+import traceback
+from telethon.tl.types import Message
 
 class Service:
-    def __init__(self, db:DB, tg:TG, ffmpeg: FFMPEG, stream_endpoint='http://localhost:8080/stream/{message_id}', default_count_frame=10, default_frame_rate=30, max_workers=5):
+    def __init__(self, db:DB, tg:TG, ffmpeg: FFMPEG, stream_endpoint='http://localhost:8080/stream/{message_id}', default_count_frame=10, default_frame_rate=30, max_workers=5, ss_export_dir = 'ss'):
         self.tg:TG = tg
         self.db:DB = db
         self.ffmpeg = ffmpeg
@@ -21,6 +24,7 @@ class Service:
         self.default_count_frame = default_count_frame
         self.default_frame_rate = default_frame_rate
         self.max_workers = max_workers
+        self.ss_export_dir = ss_export_dir
     
 
     def print_message_info(msg):
@@ -76,57 +80,127 @@ class Service:
             self.ffmpeg.generate_ss(links.download_url, path)
             
     async def start_ss_worker_direct(self, dialog_id, message_id=None, limit=None, export_path=''):
+        
         dialog = await self.tg.get_dialog_by_id(dialog_id)
         me = await self.get_my_info()
 
         session = WorkerSession(user_id=me.id, dialog_id=dialog_id)
-        _sess = self.db.get_worker_sessions(session, Filter(
+        available_session = utils.get_first(self.db.get_worker_sessions(session, Filter(
             limit=1,
-        ))
+        )))
 
-        if not _sess:
+        if not available_session:
             self.db.insert_worker_session(session)
         else:
-            session = _sess[0]
+            session = available_session
             if message_id == None:
                 message_id = session.last_scan_message_id
 
         utils.mkdir_nerr(export_path)
 
-        def process_message(msg):
-            # insert video record with status processing
+        def process_message(msg:ConsumerMessage):
+            video = msg.video
+            
+            logging.info(f"Start to process {video}")
 
-            path = os.path.join(export_path, str(msg.id))
-            utils.mkdir_nerr(path)
-            stream_url = self.stream_endpoint.format(message_id=msg.id)
-            duration = TG.get_video_duration_from_message(msg)
-            frame_skip = FFMPEG.calculate_frame_skipped(self.default_frame_rate, duration=duration, count_frame=self.default_count_frame)
             try:
-                self.ffmpeg.generate_ss(stream_url, path, frame_skip=frame_skip)
-                # update video recoed with status complete
-            except e as Exception:
-                # update video record with status failed
-                pass
+                video.status = Video.status_processing
+                self.db.update_video(video.id_only())
+            except Exception as e:
+                logging.error(f"Failed to upsert video with error: {e} \n {video}")
+                return
+            
+            path = os.path.join(export_path, str(video.id))
+            utils.mkdir_nerr(path)
+            
+            stream_url = self.stream_endpoint.format(message_id=video.message_id)
+            
+            try:
+                frame_rate = FFMPEG.get_frame_rate(stream_url)
+            except:
+                frame_rate = self.default_count_frame
+            
+            frame_skip, start_frame = FFMPEG.calculate_frame_skipped(frame_rate, duration=video.duration, count_frame=self.default_count_frame, available_frame=msg.available_frame)
+            logging.debug(f"frame analyzed | frame_rate: {frame_rate} | frame_skip: {frame_skip} | start_frame: {start_frame}")
+            
+            try:
+                
+                self.ffmpeg.generate_ss(stream_url, path, frame_skip=frame_skip,frame_rate=frame_rate, start_frame=start_frame, start_number=msg.available_frame)
+                
+                video.status = Video.status_ready
+                
+                logging.info(f"Process video {video.id} completed!")
+            except Exception as e:
+                video.status = Video.status_failed
+                
+                logging.error(f"Process video {video.id} failed :(\n{e}")
+            
+            self.db.update_video(video.id_only())
+            
+            
         
         tm = ThreadManager(process_message, queue_size=self.max_workers*2, consumer_size=self.max_workers)
         tm.run()
 
         async for msg in self.tg.get_all_video_message(dialog, start_from=message_id, limit=limit):
-            video = Video.from_message(msg)
-
-            print(msg)
-
-            # if has object, update last_scanned_id to this
-
-            # if empty or failed, send message
-
-            tm.send(msg)
-
-            # if completed skip
+            if type(msg) is not Message:
+                continue
+            
+            try:
+                video = Video(dialog_id=dialog_id)
+                video.from_message(msg)
+                
+                available_preview = self.get_previews(video.id) 
+                available_video = utils.get_first(self.db.get_videos(video.id_only(), filter=Filter(limit=1)))
+                if available_video:
+                    if available_video.status in [Video.status_failed, Video.status_unknown, Video.status_processing] or len(available_preview or []) < self.default_count_frame: 
+                        video = available_video
+                    else:
+                        logging.warn(f"Video skipped: {available_video}\n{available_preview}")
+                        continue
+                
+                session.last_scan_message_id = video.message_id
+                self.db.update_worker_session(session)
+                
+                video.status = Video.status_waiting
+                video.created_at = datetime.now().isoformat()
+                self.db.upsert_video(video)
+                
+                logging.info(f"Queue video to process: {video.id}")
+                tm.send(ConsumerMessage(
+                    video=video,
+                    available_frame=len(available_preview),
+                ))
+                
+            except Exception as e:
+                traceback.print_tb(e.__traceback__)
+                logging.error(f"Failed on produce video queue: {e}\n{msg}\n{video}")
             
 
         tm.stop()
         logging.info("Process Finished")
+        
+    def get_previews(self, id) -> list[str]:
+        try:
+            ss_export_dir = self.ss_export_dir  # Get the SS export directory from the config
+
+            # Construct the directory path for the previews
+            previews_dir = os.path.join(ss_export_dir, str(id))
+
+            # Initialize an empty list to store the file paths
+            preview_files = []
+
+            # Iterate over the files in the directory
+            for filename in os.listdir(previews_dir):
+                # Check if the file has the prefix "file" and ends with ".png"
+                if filename.endswith(".png"):
+                    # Construct the full file path and append it to the list
+                    preview_files.append(os.path.join(previews_dir, filename))
+
+            return preview_files
+        except Exception as e:
+            logging.warn(f"Preview list of {id} caught an error: {e}")
+            return []
     
     async def transmit_file(self, dialog_id, message_id, range_header):
         dialog = await self.tg.get_dialog_by_id(dialog_id)

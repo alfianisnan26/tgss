@@ -10,7 +10,7 @@ def main():
     db = DB('test.db')
 
     # Insert a video record
-    video = Video(file_id=1, message_id=1, dialog_id=1, name='Sample Video', size=1024, height=720, width=1280, bitrate=2500, duration=60.0, status='AVAILABLE')
+    video = Video(id=1, message_id=1, dialog_id=1, name='Sample Video', size=1024, height=720, width=1280, bitrate=2500, duration=60.0, status='AVAILABLE')
     db.insert_video(video)
     logging.info('Inserted video: %s', video)
 
