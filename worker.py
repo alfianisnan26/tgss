@@ -28,6 +28,7 @@ async def worker():
             max_retries=Config.MAX_RETRIES(),
             debug=Config.DEBUG(),
             is_partial_retry=Config.SS_PARTIAL_RETRY(),
+            is_use_last_message_id=Config.USE_LAST_MESSAGE_ID()
             )
 
         

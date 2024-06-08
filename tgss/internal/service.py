@@ -16,7 +16,7 @@ import traceback
 from telethon.tl.types import Message
 
 class Service:
-    def __init__(self, db:DB, tg:TG, ffmpeg: FFMPEG, stream_endpoint='http://localhost:8080/stream/{message_id}', default_count_frame=10, default_frame_rate=30, max_workers=5, ss_export_dir = 'ss', max_retries=3, debug=False, is_partial_retry=True):
+    def __init__(self, db:DB, tg:TG, ffmpeg: FFMPEG, stream_endpoint='http://localhost:8080/stream/{message_id}', default_count_frame=10, default_frame_rate=30, max_workers=5, ss_export_dir = 'ss', max_retries=3, debug=False, is_partial_retry=True, is_use_last_message_id=True):
         self.tg:TG = tg
         self.db:DB = db
         self.ffmpeg = ffmpeg
@@ -28,6 +28,7 @@ class Service:
         self.max_retries = max_retries
         self.debug = debug
         self.is_partial_retry = is_partial_retry
+        self.is_use_last_message_id = is_use_last_message_id
     
 
     def print_message_info(msg):
@@ -87,8 +88,9 @@ class Service:
             frame_skip, start_frame = FFMPEG.calculate_frame_skipped(frame_rate, duration=video.duration, count_frame=self.default_count_frame, available_frame=msg.available_frame)
             logging.debug(f"frame analyzed | frame_rate: {frame_rate} | frame_skip: {frame_skip} | start_frame: {start_frame}")
             
-            if video.bitrate:
-                stream_url += f"?chunk_size={video.bitrate}"
+            # still on research
+            # if video.bitrate:
+            #     stream_url += f"?chunk_size={video.bitrate}"
             
             try:
                 
@@ -160,7 +162,7 @@ class Service:
             self.db.insert_worker_session(session)
         else:
             session = available_session
-            if message_id == None:
+            if message_id == None and self.is_use_last_message_id:
                 message_id = session.last_scan_message_id
             else:
                 is_update_last_message_id = False

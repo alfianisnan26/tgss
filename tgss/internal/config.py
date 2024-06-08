@@ -49,3 +49,6 @@ class Config:
     
     def USE_RELOADER():
         return os.getenv("USE_RELOADER") == "true"
+    
+    def USE_LAST_MESSAGE_ID():
+        return os.getenv("USE_LAST_MESSAGE_ID") == "true"
