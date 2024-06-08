@@ -34,6 +34,7 @@ class FFMPEG:
             frame_rate = eval(info['streams'][0]['avg_frame_rate'])
             return frame_rate
         else:
+            logging.error("Caugth return code non zero, could be error")
             raise subprocess.CalledProcessError(result.returncode)
 
         

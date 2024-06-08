@@ -14,6 +14,7 @@ class Video:
     status_downloaded = 5
     status_removed = 6
     status_failed = 7
+    status_partially_ready = 8
     
     def __init__(self, 
                  id:int=None,
@@ -120,14 +121,14 @@ class Filter:
         self.sort_direction = sort_direction
         self.limit = limit
         self.offset = offset
-    
+
 class ConsumerMessage:
     def __init__(self, video:Video, retry_func=None, available_frame:int=0, retries:int=0) -> None:
         self.video = video
         self.available_frame = available_frame
         self.retries = retries + 1
         self.retry_func = retry_func
-        
+    
     def retry(self):
         if self.retries > 0:
             self.retries -= 1

@@ -43,3 +43,6 @@ class Config:
     
     def MAX_RETRIES():
         return int(os.getenv("MAX_RETRIES"))
+    
+    def SS_PARTIAL_RETRY():
+        return os.getenv("SS_PARTIAL_RETRY") == "true"

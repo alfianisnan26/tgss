@@ -26,6 +26,8 @@ async def worker():
             max_workers=Config.THREAD_MAX_WORKERS(),
             ss_export_dir=Config.SS_EXPORT_DIR(),
             max_retries=Config.MAX_RETRIES(),
+            debug=Config.DEBUG(),
+            is_partial_retry=Config.SS_PARTIAL_RETRY(),
             )
 
         
