@@ -57,48 +57,8 @@ class Service:
 
     async def get_my_info(self):
         return await self.tg.get_my_info()
-    
-
-    async def start_ss_worker(self, dialog_id, bot_id, message_id=None, limit=None, export_path = ''):
-        dialog = await self.tg.get_dialog_by_id(dialog_id)
-        bot = await self.tg.get_dialog_by_id(bot_id)
-
-        utils.mkdir_nerr(export_path)
-
-        async for msg in self.tg.get_all_video_message(dialog=dialog, start_from=message_id, limit=limit):
-            rep_msg = await self.tg.forward_and_get_reply_msg(dialog=bot, msg=msg)
-            if rep_msg == None:
-                logging.error("Failed to get replied forwarded message")
-                return
-            
-            links = utils.extract_dl_stream_link(rep_msg.message)
-
-            path = os.path.join(export_path, str(msg.id))
-
-            utils.mkdir_nerr(path)
-            
-            self.ffmpeg.generate_ss(links.download_url, path)
-            
-    async def start_ss_worker_direct(self, dialog_id, message_id=None, limit=None, export_path=''):
-        
-        dialog = await self.tg.get_dialog_by_id(dialog_id)
-        me = await self.get_my_info()
-
-        session = WorkerSession(user_id=me.id, dialog_id=dialog_id)
-        available_session = utils.get_first(self.db.get_worker_sessions(session, Filter(
-            limit=1,
-        )))
-
-        if not available_session:
-            self.db.insert_worker_session(session)
-        else:
-            session = available_session
-            if message_id == None:
-                message_id = session.last_scan_message_id
-
-        utils.mkdir_nerr(export_path)
-
-        def process_message(msg:ConsumerMessage):
+          
+    def __consumer(self, msg:ConsumerMessage):
             video = msg.video
             
             logging.info(f"Start to process {video}")
@@ -110,7 +70,7 @@ class Service:
                 logging.error(f"Failed to upsert video with error: {e} \n {video}")
                 return
             
-            path = os.path.join(export_path, str(video.id))
+            path = os.path.join(self.ss_export_dir, str(video.id))
             utils.mkdir_nerr(path)
             
             stream_url = self.stream_endpoint.format(message_id=video.message_id)
@@ -137,9 +97,50 @@ class Service:
             
             self.db.update_video(video.id_only())
             
-            
+    def __producer(self, video:Video, session: WorkerSession,):
         
-        tm = ThreadManager(process_message, queue_size=self.max_workers*2, consumer_size=self.max_workers)
+        available_preview = self.get_previews(video.id) 
+        available_video = utils.get_first(self.db.get_videos(video.id_only(), filter=Filter(limit=1)))
+        if available_video:
+            if available_video.status in [Video.status_failed, Video.status_unknown, Video.status_processing] or len(available_preview or []) < self.default_count_frame: 
+                video = available_video
+            else:
+                logging.warn(f"Video skipped: {available_video}\n{available_preview}")
+                return
+        
+        session.last_scan_message_id = video.message_id
+        self.db.update_worker_session(session)
+        
+        video.status = Video.status_waiting
+        video.created_at = datetime.now().isoformat()
+        self.db.upsert_video(video)
+        
+        logging.info(f"Queue video to process: {video.id}")
+        return ConsumerMessage(
+            video=video,
+            available_frame=len(available_preview),
+        )
+              
+    async def start_ss_worker_direct(self, dialog_id, message_id=None, limit=None):
+        
+        dialog = await self.tg.get_dialog_by_id(dialog_id)
+        me = await self.get_my_info()
+
+        session = WorkerSession(user_id=me.id, dialog_id=dialog_id)
+        available_session = utils.get_first(self.db.get_worker_sessions(session, Filter(
+            limit=1,
+        )))
+
+        if not available_session:
+            self.db.insert_worker_session(session)
+        else:
+            session = available_session
+            if message_id == None:
+                message_id = session.last_scan_message_id
+
+        utils.mkdir_nerr(self.ss_export_dir)
+        
+        tm = ThreadManager(self.__consumer, queue_size=self.max_workers*2, consumer_size=self.max_workers)
         tm.run()
 
         async for msg in self.tg.get_all_video_message(dialog, start_from=message_id, limit=limit):
@@ -150,31 +151,13 @@ class Service:
                 video = Video(dialog_id=dialog_id)
                 video.from_message(msg)
                 
-                available_preview = self.get_previews(video.id) 
-                available_video = utils.get_first(self.db.get_videos(video.id_only(), filter=Filter(limit=1)))
-                if available_video:
-                    if available_video.status in [Video.status_failed, Video.status_unknown, Video.status_processing] or len(available_preview or []) < self.default_count_frame: 
-                        video = available_video
-                    else:
-                        logging.warn(f"Video skipped: {available_video}\n{available_preview}")
-                        continue
-                
-                session.last_scan_message_id = video.message_id
-                self.db.update_worker_session(session)
-                
-                video.status = Video.status_waiting
-                video.created_at = datetime.now().isoformat()
-                self.db.upsert_video(video)
-                
-                logging.info(f"Queue video to process: {video.id}")
-                tm.send(ConsumerMessage(
-                    video=video,
-                    available_frame=len(available_preview),
-                ))
-                
+                msg = self.__producer(video, session)
+                if msg:
+                    tm.send(msg)
+                    
             except Exception as e:
                 traceback.print_tb(e.__traceback__)
-                logging.error(f"Failed on produce video queue: {e}\n{msg}\n{video}")
+                logging.error(f"Failed on produce video queue: {e}\n{msg}\n{msg}")
             
 
         tm.stop()

@@ -39,7 +39,7 @@ async def worker():
             limit = int(sys.argv[2])
 
         # await svc.start_ss_worker(Config.DIALOG_ID(), Config.BOT_ID(), message_id, limit, Config.SS_EXPORT_DIR())
-        await svc.start_ss_worker_direct(Config.DIALOG_ID(), limit=limit, export_path=Config.SS_EXPORT_DIR(), message_id=message_id)
+        await svc.start_ss_worker_direct(Config.DIALOG_ID(), limit=limit, message_id=message_id)
 
 if __name__ == "__main__":
     asyncio.run(worker())
