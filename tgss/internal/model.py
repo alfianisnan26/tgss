@@ -34,6 +34,7 @@ class Video:
                  flag_favorited:bool=None,
                  
                  ocr:list[str]=[],
+                 processing_time=None,
                  ):
 
         self.id = id
@@ -50,6 +51,7 @@ class Video:
         self.video_date = video_date
         self.flag_favorited = None if flag_favorited == None else (1 if flag_favorited else 0)
         self.ocr = self.set_ocr(ocr)
+        self.processing_time = processing_time
     
     def is_favorited(self):
         return self.flag_favorited == 1
@@ -107,7 +109,9 @@ class Video:
             "status": self.status,
             "created_at": self.created_at,
             "video_date": self.video_date,
-            "flag_favorited": self.is_favorited()
+            "flag_favorited": self.is_favorited(),
+            "ocr": self.ocr,
+            "processing_time": self.processing_time,
         }
         
     def __str__(self):

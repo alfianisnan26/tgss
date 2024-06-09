@@ -63,7 +63,8 @@ class DB:
             ('status', 'INTEGER NOT NULL', None),
             ('flag_favorited', 'INTEGER NOT NULL', None),
             
-            ('ocr', "TEXT", None)
+            ('ocr', "TEXT", None),
+            ('processing_time', "INTEGER", None)
         ]
 
         tab_worker_session_col = [

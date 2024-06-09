@@ -65,6 +65,8 @@ class Service:
         return await self.tg.get_my_info()
           
     async def __consumer(self, msg:ConsumerMessage):
+            start_time = datetime.now()
+            
             self.logger.info(f"__consumer: Start to process {msg}")
             
             video = msg.video
@@ -112,6 +114,8 @@ class Service:
                 if ret:
                     self.logger.warning(f"__consumer: Retry the message of {video.id} with credit of {ret}")
             
+            end_time = datetime.now()
+            video.processing_time = float((end_time - start_time).total_seconds())
             self.db.update_video(video)
             
     def __producer(self, video:Video, session: WorkerSession, is_update_last_message_id:bool=True):
