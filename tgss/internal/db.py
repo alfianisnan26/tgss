@@ -167,14 +167,18 @@ class DB:
     def delete_worker_session(self, session_id: int) -> None:
         self.__delete_from_table(DB.tab_worker_session, session_id)
 
-    def get_videos_for_slideshow(self, statuses: list[int], limit: int, offset: int) -> list[Video]:
+    def get_videos_for_slideshow(self, statuses: list[int], limit: int, offset: int, is_skip_favorited: bool = False) -> list[Video]:
         # Construct the placeholders for the statuses dynamically
         placeholders = ', '.join('?' for _ in statuses)
+        
+        skip_favorited = ""
+        if is_skip_favorited:
+            skip_favorited = "AND flag_favorited != 1"
         
         # Create the SQL query
         query = f"""
             SELECT * FROM {DB.tab_video}
-            WHERE status IN ({placeholders})
+            WHERE status IN ({placeholders}) {skip_favorited}
             ORDER BY flag_favorited DESC, created_at DESC
             LIMIT ? OFFSET ?
         """

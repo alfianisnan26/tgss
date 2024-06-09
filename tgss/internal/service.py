@@ -59,7 +59,26 @@ class Service:
         
 
     async def get_available_dialogs(self):
-        return await self.tg.get_available_dialogs()
+        msgs = await self.tg.get_available_dialogs()
+
+        output_msgs = []
+        for msg in msgs:
+            output = {
+                'id': msg.id, 
+                "channel_id": None, 
+                "user_id": None,
+                'name':msg.name,
+                'last_message_path': f'/dialogs/last_message?dialog_id={msg.id}',
+            } 
+        
+            if hasattr(msg.dialog.peer,"channel_id"):
+                output["channel_id"] = msg.dialog.peer.channel_id
+            elif hasattr(msg.dialog.peer,"user_id"):
+                output["channel_id"] = msg.dialog.peer.user_id
+                
+            output_msgs.append(output)
+            
+        return output_msgs
 
     async def get_my_info(self):
         return await self.tg.get_my_info()
@@ -317,11 +336,11 @@ class Service:
 
         return self.tg.build_file_generator(message, file_size, until_bytes, from_bytes, chunk_size=chunk_size), headers, 206 if range_header else 200
     
-    def get_videos_for_slideshow(self, limit: int, offset: int) -> list[Video]:
+    def get_videos_for_slideshow(self, limit: int, offset: int, is_skip_favorited: bool = False) -> list[Video]:
         statuses = [
             Video.status_downloaded,
             Video.status_downloading,
             Video.status_partially_ready,
             Video.status_ready,
         ]
-        return self.db.get_videos_for_slideshow(statuses=statuses, limit=limit, offset=offset)
+        return self.db.get_videos_for_slideshow(statuses=statuses, limit=limit, offset=offset, is_skip_favorited=is_skip_favorited)

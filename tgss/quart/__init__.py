@@ -75,12 +75,7 @@ async def last_message_with_dialog():
 @app.route('/dialogs')
 async def dialogs():
     dialogs = await svc.get_available_dialogs()
-    return jsonify([{
-            'id': o.id,
-            'name': o.name,
-            'last_message_path': f'/dialogs/last_message?dialog_id={o.id}'
-        } for o in dialogs 
-    ])
+    return jsonify(dialogs)
 
 @app.route('/stream')
 async def transmit_file():
@@ -188,6 +183,8 @@ async def switch_video_favorit(video_id:int):
 async def get_video_for_slideshow():
     limit = request.args.get('limit')
     offset = request.args.get('offset')
+    is_skip_favorited = request.args.get("is_skip_favorited") == "true"
+    
     
     if not limit:
         limit = 50
@@ -198,5 +195,5 @@ async def get_video_for_slideshow():
     offset = int(offset)
     
     return jsonify([
-        o.to_dict() for o in svc.get_videos_for_slideshow(limit=limit, offset=offset)
+        o.to_dict() for o in svc.get_videos_for_slideshow(limit=limit, offset=offset, is_skip_favorited=is_skip_favorited)
     ])
