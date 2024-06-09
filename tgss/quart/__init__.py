@@ -9,9 +9,11 @@ from tgss.internal.service import Service
 from tgss.quart import error
 from tgss.internal.model import Video, Filter, WorkerSession
 from tgss.internal.cache import AsyncCache
+from quart_cors import cors
 import os
 
 app = Quart(__name__)
+app = cors(app, allow_origin="*")  # Allow requests from any origin
 
 app.register_error_handler(400, error.invalid_request)
 app.register_error_handler(404, error.not_found)
@@ -20,6 +22,7 @@ app.register_error_handler(error.HTTPError, error.http_error)
 
 app.config['RESPONSE_TIMEOUT'] = None
 app.config['REQUEST_TIMEOUT'] = 120
+
 
 db = DB(Config.SQLITE_URL())
 
@@ -168,4 +171,10 @@ async def get_session_list():
 
 @app.route('/videos/<int:video_id>/favorite')
 async def switch_video_favorit(video_id:int):
-    pass
+    state, res = svc.switch_video_favorite(video_id)
+    if res:
+        error.abort(res)
+        
+    return jsonify({
+        'state': state
+    })

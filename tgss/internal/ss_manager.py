@@ -104,6 +104,7 @@ class ScreenshotWorker:
                 ocr = pytesseract.image_to_string(image=image)
                 
                 image.save(output_path)
+                image.close()
                 
                 self.logger.info(f"__process: Screenshot saved at: {output_path}")
                 

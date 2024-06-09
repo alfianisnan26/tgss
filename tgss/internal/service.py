@@ -242,6 +242,23 @@ class Service:
             
         return self.db.get_worker_sessions(ref, filter)
     
+    def switch_video_favorite(self, video_id):
+        video:Video = utils.get_first(self.db.get_videos(ref=Video(id=video_id), filter=Filter(limit=1)))
+        if not video:
+            return None, 404
+        
+        if video.is_favorited():
+            video.flag_favorited = False
+        else:
+            video.flag_favorited = True
+        
+        self.db.update_video(new=Video(
+            id=video.id,
+            flag_favorited=video.flag_favorited
+        ))
+        
+        return video.flag_favorited, None
+    
     async def transmit_file(self, dialog_id, message_id, chunk_size, range_header):  
         
         if not chunk_size or chunk_size == 0:
@@ -295,3 +312,4 @@ class Service:
         self.logger.info(f"Service.transmit_file: request of dialog_id: {dialog_id}, message_id: {message_id}, chunk_size: {chunk_size}")
 
         return self.tg.build_file_generator(message, file_size, until_bytes, from_bytes, chunk_size=chunk_size), headers, 206 if range_header else 200
+    
