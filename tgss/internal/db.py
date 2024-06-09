@@ -167,6 +167,25 @@ class DB:
     def delete_worker_session(self, session_id: int) -> None:
         self.__delete_from_table(DB.tab_worker_session, session_id)
 
+    def get_videos_for_slideshow(self, statuses: list[int], limit: int, offset: int) -> list[Video]:
+        # Construct the placeholders for the statuses dynamically
+        placeholders = ', '.join('?' for _ in statuses)
+        
+        # Create the SQL query
+        query = f"""
+            SELECT * FROM {DB.tab_video}
+            WHERE status IN ({placeholders})
+            ORDER BY flag_favorited DESC, created_at DESC
+            LIMIT ? OFFSET ?
+        """
+
+        # Execute the query with the given parameters
+        rows = self.execute_query(query, *statuses, limit, offset)
+        
+        # Convert the rows to Video objects
+        videos = [Video(*row) for row in rows]
+        return videos
+    
 # Example usage
 if __name__ == "__main__":
     db = DB()

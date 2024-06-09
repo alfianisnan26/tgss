@@ -242,15 +242,19 @@ class Service:
             
         return self.db.get_worker_sessions(ref, filter)
     
-    def switch_video_favorite(self, video_id):
+    def switch_video_favorite(self, video_id, value=None):
         video:Video = utils.get_first(self.db.get_videos(ref=Video(id=video_id), filter=Filter(limit=1)))
         if not video:
+            self.logger.debug(f"switch_video_favorite: not found {video_id} {type(video_id)} {value}")
             return None, 404
         
-        if video.is_favorited():
-            video.flag_favorited = False
+        if value:
+            video.flag_favorited = value
         else:
-            video.flag_favorited = True
+            if video.is_favorited():
+                video.flag_favorited = False
+            else:
+                video.flag_favorited = True
         
         self.db.update_video(new=Video(
             id=video.id,
@@ -313,3 +317,11 @@ class Service:
 
         return self.tg.build_file_generator(message, file_size, until_bytes, from_bytes, chunk_size=chunk_size), headers, 206 if range_header else 200
     
+    def get_videos_for_slideshow(self, limit: int, offset: int) -> list[Video]:
+        statuses = [
+            Video.status_downloaded,
+            Video.status_downloading,
+            Video.status_partially_ready,
+            Video.status_ready,
+        ]
+        return self.db.get_videos_for_slideshow(statuses=statuses, limit=limit, offset=offset)

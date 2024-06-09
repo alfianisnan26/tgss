@@ -97,7 +97,7 @@ class Video:
             
     def to_dict(self):
         return {
-            "id": self.id,
+            "id": str(self.id),
             "message_id": self.message_id,
             "dialog_id": self.dialog_id,
             "name": self.name,

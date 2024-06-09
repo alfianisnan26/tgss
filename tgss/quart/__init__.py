@@ -171,10 +171,32 @@ async def get_session_list():
 
 @app.route('/videos/<int:video_id>/favorite')
 async def switch_video_favorit(video_id:int):
-    state, res = svc.switch_video_favorite(video_id)
+    value = request.args.get('value')
+    
+    if value:
+        value = value == "true"
+    
+    state, res = svc.switch_video_favorite(video_id, value=value)
     if res:
         error.abort(res)
         
     return jsonify({
         'state': state
     })
+    
+@app.route("/videos/slideshow")
+async def get_video_for_slideshow():
+    limit = request.args.get('limit')
+    offset = request.args.get('offset')
+    
+    if not limit:
+        limit = 50
+    limit = int(limit)
+    
+    if not offset:
+        offset = 0
+    offset = int(offset)
+    
+    return jsonify([
+        o.to_dict() for o in svc.get_videos_for_slideshow(limit=limit, offset=offset)
+    ])
