@@ -58,3 +58,6 @@ class Config:
     
     def CHUNK_SIZE():
         return int(os.getenv("CHUNK_SIZE"))
+    
+    def SERVER_HOST():
+        return os.getenv("SERVER_HOST")
