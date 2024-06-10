@@ -43,6 +43,7 @@ async def worker():
             is_use_last_message_id=Config.USE_LAST_MESSAGE_ID(),
             default_chunk_size=Config.CHUNK_SIZE(),
             cache=cache,
+            cool_down_retry=Config.COOL_DOWN_RETRY(),
             )
 
 

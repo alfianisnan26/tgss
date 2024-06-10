@@ -15,7 +15,8 @@ from tgss.internal.cache import AsyncCache
 from tgss.internal.ss_manager import ScreenshotManager
 
 class Service:
-    def __init__(self, db:DB, tg:TG, sm:ScreenshotManager=None, stream_host='http://localhost:8080', default_count_frame=10, default_frame_rate=30, max_workers=5, ss_export_dir = 'ss', max_retries=3, debug=False, is_partial_retry=True, is_use_last_message_id=True, cache:AsyncCache=AsyncCache(), default_chunk_size=1024*1024):
+    def __init__(self, db:DB, tg:TG, sm:ScreenshotManager=None, stream_host='http://localhost:8080', default_count_frame=10, default_frame_rate=30, max_workers=5, ss_export_dir = 'ss', max_retries=3, debug=False, is_partial_retry=True, is_use_last_message_id=True, cache:AsyncCache=AsyncCache(), default_chunk_size=1024*1024, cool_down_retry=10):
+        self.cool_down_retry = cool_down_retry
         self.logger = logging.getLogger(self.__class__.__name__)
         self.tg:TG = tg
         self.db:DB = db
@@ -113,7 +114,10 @@ class Service:
                     stream_url,
                     sub_path=str(video.id)
                 )
+                
                 ok, msgs = await worker.run()
+            
+                
                 if ok:
                     self.logger.info(f"__consumer: Worker run success of {video.id}")
                     video.status = Video.status_ready
@@ -123,12 +127,15 @@ class Service:
                     is_retryable = True
                     video.status = Video.status_partially_ready
                     
+                    
             except Exception as e:
                 self.logger.error(f"__consumer: Worker run failed of {video.id} with error {e}")
                 is_retryable = True
                 video.status = Video.status_failed
                 
             if is_retryable:
+                self.logger.warning(f"__consumer: Will retry the message of {video.id} with cooldown of {self.cool_down_retry}")
+                await asyncio.sleep(self.cool_down_retry)
                 ret = msg.retry()
                 if ret:
                     self.logger.warning(f"__consumer: Retry the message of {video.id} with credit of {ret}")

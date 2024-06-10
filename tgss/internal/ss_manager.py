@@ -36,7 +36,7 @@ class IntervalMessage:
         return self.__interval
     
 class ScreenshotWorker:
-    def __init__(self, manager, clip, count=10, sub_path=None) -> None:
+    def __init__(self, manager, clip:VideoFileClip, count=10, sub_path=None) -> None:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.manager = manager
         self.clip = clip
@@ -65,8 +65,10 @@ class ScreenshotWorker:
                 break
             
             self.logger.warning(f"generate: Will retry the process. retries: {self.manager.max_retries-i}")
-            
-            
+        
+        # immediately close the VideoClipFile after use
+        self.clip.close()
+        
         not_ready = self.__not_ready_intervals()
         self.logger.info(f"generate: Process finished. Success {len(self.intervals) - len(not_ready)} out of {len(self.intervals)}")
         return len(not_ready) == 0, self.intervals
@@ -131,7 +133,7 @@ class ScreenshotManager:
             self.logger.debug(f"__init__: Created output directory: {output_dir}")
         
         
-    def prepare(self, url, count=None, sub_path=None):
+    def prepare(self, url, count=None, sub_path=None) -> ScreenshotWorker:
         self.logger.info("generate: Starting to generate preview screenshots...")
         if not count:
             count = self.default_count

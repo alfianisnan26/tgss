@@ -61,3 +61,6 @@ class Config:
     
     def SERVER_HOST():
         return os.getenv("SERVER_HOST")
+    
+    def COOL_DOWN_RETRY():
+        return int(os.getenv("COOL_DOWN_RETRY"))
