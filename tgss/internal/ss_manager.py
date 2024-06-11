@@ -66,9 +66,6 @@ class ScreenshotWorker:
             
             self.logger.warning(f"generate: Will retry the process. retries: {self.manager.max_retries-i}")
         
-        # immediately close the VideoClipFile after use
-        self.clip.close()
-        
         not_ready = self.__not_ready_intervals()
         self.logger.info(f"generate: Process finished. Success {len(self.intervals) - len(not_ready)} out of {len(self.intervals)}")
         return len(not_ready) == 0, self.intervals
@@ -94,7 +91,7 @@ class ScreenshotWorker:
         try:
             hours, remainder = divmod(interval, 3600)
             minutes, seconds = divmod(remainder, 60)
-            timestamp = "{:03}_{:02}:{:02}:{:02}".format(index, int(hours), int(minutes), int(seconds))
+            timestamp = "{:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds))
             
             output_path = os.path.join(self.output_dir, f"{timestamp}.png")
             ocr = None
@@ -116,10 +113,11 @@ class ScreenshotWorker:
             await interval_msg.set_ok(ocr=ocr)
                 
         except Exception as e:
-            self.logger.error(f"__process: Error occurred while saving screenshot: {str(e)}")
+            await asyncio.sleep(self.manager.cool_down_error)
+            self.logger.error(f"__process: Error occurred while saving screenshot: {str(e)} cool down delay: {self.cool_down_error}")
 
 class ScreenshotManager:
-    def __init__(self, output_dir, max_workers=4, max_retries=3, cache=None, clip_cache_ttl=120, default_count=10):
+    def __init__(self, output_dir, max_workers=4, max_retries=3, cache=None, clip_cache_ttl=120, default_count=10, cool_down_error=10):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.max_workers = max_workers
         self.max_retries = max_retries
@@ -127,6 +125,7 @@ class ScreenshotManager:
         self.cache = cache
         self.clip_cache_ttl = clip_cache_ttl
         self.default_count = default_count
+        self.cool_down_error = cool_down_error
         
         if not os.path.exists(self.output_dir):
             os.makedirs(output_dir)

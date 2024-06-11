@@ -27,6 +27,7 @@ async def worker():
             cache=cache,
             # cache ttl
             default_count=Config.FRAME_COUNT(),
+            cool_down_error=Config.COOL_DOWN_ERROR(),
             )
         
         svc = Service(

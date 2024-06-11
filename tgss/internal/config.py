@@ -64,3 +64,6 @@ class Config:
     
     def COOL_DOWN_RETRY():
         return int(os.getenv("COOL_DOWN_RETRY"))
+    
+    def COOL_DOWN_ERROR():
+        return int(os.getenv("COOL_DOWN_ERROR"))

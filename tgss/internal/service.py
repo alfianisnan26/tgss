@@ -132,7 +132,10 @@ class Service:
                 self.logger.error(f"__consumer: Worker run failed of {video.id} with error {e}")
                 is_retryable = True
                 video.status = Video.status_failed
-                
+            
+            # close the video clip
+            worker.clip.close()
+            
             if is_retryable:
                 self.logger.warning(f"__consumer: Will retry the message of {video.id} with cooldown of {self.cool_down_retry}")
                 await asyncio.sleep(self.cool_down_retry)
@@ -249,7 +252,7 @@ class Service:
 
             return preview_files
         except Exception as e:
-            self.logger.warning(f"get_previews: Preview list of {id} caught an error: {e}")
+            self.logger.debug(f"get_previews: Preview list of {id} caught an error: {e}")
             return []
         
     def get_video_list(self, ref:Video, filter:Filter):
